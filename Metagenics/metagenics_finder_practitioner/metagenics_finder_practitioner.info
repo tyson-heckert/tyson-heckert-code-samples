@@ -1,0 +1,4 @@
+name = Metagenics Finder Practitioner
+description = Code specific to updating the find a practitioner search form 
+core = 7.x
+package = Metagenics Development

@@ -1,0 +1,804 @@
+<?php
+/**
+ * @file
+ * Custom Salesforce integration for Brookfield Portal module.
+ */
+
+
+/**
+ * Define the earliest date that we want to pull from.
+ */
+define('BROOK_SF_EARLIEST_RECORD_DATE', variable_get('brookfield_sf_earliest_record_pull', '2011-05-01T22:08:24Z'));
+
+
+/**
+ * Implements hook_menu().
+ */
+function brookfield_salesforce_menu() {
+  $items = array();
+
+  $items['admin/config/brookfield/salesforce'] = array(
+    'title' => 'Salesforce import',
+    'description' => 'Salesforce custom import',
+    'file' => 'brookfield_salesforce.admin.inc',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('brookfield_salesforce_custom_pull_form'),
+    'access arguments' => array('administer nodes'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['admin/config/brookfield/salesforce/settings'] = array(
+    'title' => 'Salesforce settings',
+    'description' => 'Salesforce settings',
+    'file' => 'brookfield_salesforce.admin.inc',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('brookfield_salesforce_system_settings_form'),
+    'access arguments' => array('administer nodes'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['admin/config/brookfield/salesforce/test-mode'] = array(
+    'title' => 'Salesforce Test Mode',
+    'description' => 'Salesforce Test Mode',
+    'file' => 'brookfield_salesforce.admin.inc',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('brookfield_salesforce_test_config_form'),
+    'access arguments' => array('administer nodes'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * Alter the value being mapped to an entity property from a Salesforce object.
+ *
+ * @param string $value
+ *   Salesforce field value.
+ * @param array $field_map
+ *   Associative array containing the field mapping in the form
+ *   <code>
+ *   'fieldmap_name' => array(
+ *      'drupal_field' => array(
+ *        'fieldmap_type' => 'property',
+ *        'fieldmap_value' => 'first_name'
+ *      ),
+ *      'salesforce_field' => array()
+ *   )
+ *   </code>
+ * @param object $sf_object
+ *   Fully loaded Salesforce object
+ */
+// function brookfield_salesforce_salesforce_pull_entity_value_alter(&$value, $field_map, $sf_object) {
+//   // dsm($value);
+//   // dsm($field_map);
+//   // dsm($sf_object);
+// }
+
+/**
+ * Alter a SOQL select query before it is executed.
+ *
+ * @param SalesforceSelectQuery $query
+ *   The query object to alter.
+ */
+function brookfield_salesforce_salesforce_query_alter(SalesforceSelectQuery &$query) {
+  // Set a higher time limit to deal with a lot of records coming in.
+  drupal_set_time_limit(8000);
+
+  $test_mode_enabled = variable_get('brookfield_sf_enable_test_mode', 0);
+
+  $test_mode_field = variable_get('brookfield_sf_test_mode_field', 0);
+  $test_mode_field_values = str_replace(' ', '', variable_get('brookfield_sf_test_mode_field_value', 0));
+  $test_mode_values = explode(",", $test_mode_field_values);
+  $test_values_clean = implode("', '", $test_mode_values);
+
+  $mapping = $query->objectType;
+  switch ($mapping) {
+    case 'Communities__c':
+      $query->addCondition('CreatedDate', BROOK_SF_EARLIEST_RECORD_DATE, '>');
+      break;
+
+    case 'Neighborhoods__c':
+      $query->addCondition('CreatedDate', BROOK_SF_EARLIEST_RECORD_DATE, '>');
+      break;
+
+    case 'Account':
+
+      if ($test_mode_enabled) {
+        $query->conditions = array();
+        $query->conditions[0]['field'] = $test_mode_field;
+        $query->conditions[0]['operator'] = 'IN';
+        $query->conditions[0]['value'] = "('{$test_values_clean}')";
+      }
+
+      $query->addCondition('(Lot_Status_Icon__c', '\'' . urlencode('%') . 'sold\'', 'LIKE', 'OR');
+      $query->addCondition('Lot_Status_Icon__c', '\'' . urlencode('%') . 'closed\')', 'LIKE');
+      $query->addCondition('FAST_Email__c', '\'\'', '!=');
+      $query->addCondition('CreatedDate', BROOK_SF_EARLIEST_RECORD_DATE, '>');
+
+      break;
+
+    case 'Lot__c':
+
+      $vals = array(
+        'Lot+is+sold',
+        'Available+for+sale',
+        'Lot+is+reserved',
+        'Lot+is+closed',
+      );
+
+      if ($test_mode_enabled) {
+
+        $query->conditions = array();
+        $query->conditions[0]['field'] = $test_mode_field;
+        $query->conditions[0]['operator'] = 'IN';
+        $query->conditions[0]['value'] = "('{$test_values_clean}')";
+
+      }
+
+      $query->addCondition('Lot_Status__c', $vals, 'IN');
+      $query->addCondition('CreatedDate', BROOK_SF_EARLIEST_RECORD_DATE, '>');
+
+      break;
+
+    case 'DefectCodeGroup__c':
+      // If we not are ruuning a pull from the punchlis wizard, then don't pull
+      // in any records.
+      if (!isset($_SESSION['brookfield']['defect_code_group_pull'])) {
+        brookfield_salesforce_null_query($query);
+      }
+      $query->addCondition('CreatedDate', BROOK_SF_EARLIEST_RECORD_DATE, '>');
+      break;
+
+    case 'Service_Request__c':
+      if ($test_mode_enabled) {
+
+        $query->conditions = array();
+        $query->conditions[0]['field'] = $test_mode_field = 'Customer__c' ? 'CustomerNo__c' : $test_mode_field;
+        $query->conditions[0]['operator'] = 'IN';
+        $query->conditions[0]['value'] = "('{$test_values_clean}')";
+
+      }
+      $query->addCondition('CreatedDate', BROOK_SF_EARLIEST_RECORD_DATE, '>');
+
+      break;
+  }
+  //dsm($query);
+
+}
+
+/**
+ * Get a list of customer accounts and their FAST IDs.
+ *
+ * @return array
+ *   Returns an array of FAST ids for customer accounts
+ */
+function brookfield_salesforce_get_users() {
+  $query = "SELECT smo.salesforce_id
+    FROM {salesforce_mapping_object} smo
+    WHERE entity_type = 'user'";
+
+  $result = db_query($query);
+  $customer_numbers = $result->fetchCol();
+
+  return $customer_numbers;
+}
+
+/**
+ * Grab a list of lots id'd by their SF ID.
+ * @return array
+ *   Returns an array of SalesForce ids for Lot nodes
+ */
+function brookfield_salesforce_get_codegroup_jobs() {
+  $query = "SELECT s.salesforce_id
+    FROM {salesforce_mapping_object} s
+    INNER JOIN {node} n ON n.nid = s.entity_id
+    WHERE ( (n.type = 'lot') )
+    LIMIT 500";
+
+  $result = db_query($query);
+  $lot_job_ids = $result->fetchCol();
+  $lot_job_id_list = implode("','", $lot_job_ids);
+
+  return $lot_job_id_list;
+}
+
+/**
+ * Grab a list of lots id'd by their Lot #s.
+ *
+ * @return array
+ *   Returns an array of Lot Numbers (aka Titles) ids for Lot nodes.
+ */
+function brookfield_salesforce_get_lots() {
+  $query = "SELECT n.title
+    FROM {node} n
+    WHERE ( (n.type = 'lot') )
+    LIMIT 500";
+  $result = db_query($query);
+  $lot_ids = $result->fetchCol();
+  $lot_id_list = implode("','", $lot_ids);
+  return $lot_id_list;
+}
+
+/**
+ * Implements hook_cron_queue_info()
+ * @return [type] [description]
+ */
+function brookfield_salesforce_cron_queue_info() {
+  $queues['brookfield_salesforce_bulk_import_dcgs'] = array(
+    'worker callback' => 'brookfield_salesforce_bulk_import_dcgs_worker',
+    'time' => 500, // time in seconds for each worker
+  );
+  return $queues;
+}
+
+
+/**
+ * Implement our own cron hook and callback function.
+ *
+ * fire off any items in the cron queue rather than let drupal do it this lets
+ * us clean the queue manually any time we want.
+ */
+function brookfield_salesforce_cronapi($op, $job = NULL) {
+  $items = array();
+
+  $items['clean_queue'] = array(
+    'description' => 'Clean the queue .',
+    'callback' => 'brookfield_salesforce_clean_queue',
+  );
+
+  $items['brookfield_salesforce_dcg_import'] = array(
+    'description' => 'Cache lot data for the app to pull.',
+    'callback' => 'brookfield_salesforce_dcg_import',
+  );
+
+  $items['brookfield_salesforce_view_cache'] = array(
+    'description' => 'Cache lot data for the app to pull.',
+    'callback' => 'brookfield_salesforce_view_update_cache_cron',
+  );
+
+  return $items;
+}
+
+/**
+ * Callback function for lot_cache cron task.
+ * Also used for manual pulls on the salesforce import admin page.
+ * Imports dcg's for lots and cache's the lot data endpoint.
+ *
+ * @param bool $batch_import
+ *   If this import should be conducted as a batch. admin page will be true.
+ *
+ * @param bool $force_full
+ *   TRUE if you want to force a full update on all DCG's, no partial udpates.
+ *   Usefull for first time imports before the cron queue can really take effect.
+ *
+ */
+function brookfield_salesforce_dcg_import($batch_import = FALSE, $force_full = FALSE){
+
+  // Grab our neighborhood list
+  $neighborhood_list = views_get_view_result('rest_neighborhoods', 'services_1');
+
+  // Set default value in case the stages can't be found
+  $min_progress = 65200;
+
+  // Get the minimum progress id for the flooring construction stage and use
+  // it in the lot search.
+  $stages = brookfield_general_get_construction_stages();
+  foreach($stages as $stage){
+    if($stage['title'] == 'Cabinets'){
+      $min_progress = $stage['min'];
+    }
+  }
+
+  foreach($neighborhood_list as $neighborhood){
+
+    // Get the list of available lots
+    $query = new EntityFieldQuery();
+
+    $query->entityCondition('entity_type', 'node')
+      ->entityCondition('bundle', 'lot')
+      ->fieldCondition('field_neighborhood_reference', 'target_id', $neighborhood->nid, '=')
+      ->fieldCondition('field_lot_status', 'value', 'Lot is sold', '=')
+      ->fieldCondition('field_lot_progress_id', 'value', $min_progress, '>=');
+
+    $result = $query->execute();
+
+    // Load all the results, stash their sf ids into an array
+    if (isset($result['node'])) {
+      $lot_nids = array_keys($result['node']);
+      $lots = entity_load('node', $lot_nids);
+      foreach($lots as $lot){
+
+        // No empty customer references. This is hard to do with an entity field
+        // query so just do it here
+        if(!empty($lot->field_customer_reference)){
+
+          // Lots with no dcg's will need a full import, otherwise we can update
+          // $force_full is set if the admin page wants to force a full import
+          // on all dcg's, usefull for first time imports before the cron queue
+          // can really take effect.
+          if(empty($lot->field_lot_defect_code_groups) || $force_full){
+            $full_pull_lot_sf_ids[] = $lot->salesforce_id;
+          }
+          else{
+            $update_pull_lot_sf_ids[] = $lot->salesforce_id;
+          }
+        }
+      }
+    }
+  }
+
+  // If batching, create a batch and merge operations for both full and update
+  // imports, otherwise the bulk_import function can handle the rest (queueing)
+  if($batch_import){
+
+    // Bulk import the dcgs for all lots we've gathered
+    $operations_full = brookfield_salesforce_dcg_bulk_import($full_pull_lot_sf_ids, 'full', $batch_import);
+    $operations_update = brookfield_salesforce_dcg_bulk_import($update_pull_lot_sf_ids, 'update', $batch_import);
+
+    // Set an operation to hit the lot endpoint view with each neighborhood to recache it.
+    $operations_view_update[] = array('brookfield_salesforce_view_update_cache', array($neighborhood_list));
+
+    $batch = array(
+      'title' => t('Importing DCG\'s'),
+      'operations' => array_merge($operations_full, $operations_update, $operations_view_update),
+    );
+
+    batch_set($batch);
+  }
+  else{
+    // Bulk import the dcgs for all lots we've gathered
+    brookfield_salesforce_dcg_bulk_import($full_pull_lot_sf_ids, 'full');
+    brookfield_salesforce_dcg_bulk_import($update_pull_lot_sf_ids, 'update');
+  }
+
+}
+
+
+function brookfield_salesforce_view_update_cache_cron(){
+    $neighborhood_list = views_get_view_result('rest_neighborhoods', 'services_1');
+      // Loop through the neighborhoods again and hit the services endpoint view
+  // to cache the results
+  foreach($neighborhood_list as $neighborhood){
+    $view = views_get_view('rest_lots');
+    $view->set_display('services_1');
+    $view->set_arguments(array($neighborhood->nid));
+    $view->pre_execute();
+    $view->execute();
+  }
+}
+
+function brookfield_salesforce_view_update_cache($neighborhood_list){
+
+  // Loop through the neighborhoods again and hit the services endpoint view
+  // to cache the results
+  foreach($neighborhood_list as $neighborhood){
+    $view = views_get_view('rest_lots');
+    $view->set_display('services_1');
+    $view->set_arguments(array($neighborhood->nid));
+    $view->pre_execute();
+    $view->execute();
+  }
+}
+
+function brookfield_salesforce_dcg_bulk_import($lot_sf_ids, $context, $batch_import = FALSE){
+
+  $operations = array();
+
+  if(!empty($lot_sf_ids)){
+
+    $queue = DrupalQueue::get('brookfield_salesforce_bulk_import_dcgs');
+
+    $chunk_array = array_chunk($lot_sf_ids, 1);
+
+    foreach ($chunk_array as $key => $id_array) {
+
+      $conds = array();
+      if($context == 'update'){
+        $conds[] = array(
+          'field' => 'LastModifiedDate',
+          'value' => date('Y-m-d', strtotime('-1 day')) . 'T22:08:24Z',
+          'operator' => '>',
+        );
+      }
+
+      $conds[] = array(
+        'field' => 'Lot__c',
+        'value' => "('" . implode("','", $id_array) . "')",
+        'operator' => 'IN',
+      );
+
+      if($batch_import){
+        $operations[] = array('brookfield_salesforce_bulk_import_dcgs_worker', array($conds));
+      }
+      else{
+        $queue->createItem($conds);
+      }
+    }
+  }
+
+  if($batch_import){
+    return $operations;
+  }
+
+}
+
+function brookfield_salesforce_bulk_import_dcgs_worker($conds){
+  //watchdog('brookfield_salesforce', print_r($conds, 1));
+  brookfield_salesforce_pull_records('DefectCodeGroup__c', $conds);
+}
+
+function brookfield_salesforce_clean_queue() {
+  $queues = module_invoke('salesforce', 'cron_queue_info');
+  drupal_alter('cron_queue_info', $queues);
+
+  // Make sure every queue exists. There is no harm in trying to recreate an
+  // existing queue.
+  foreach ($queues as $queue_name => $info) {
+    DrupalQueue::get($queue_name)->createQueue();
+  }
+
+  foreach ($queues as $queue_name => $info) {
+    $function = $info['worker callback'];
+    $end = time() + (isset($info['time']) ? $info['time'] : 15);
+    $queue = DrupalQueue::get($queue_name);
+    while (time() < $end && ($item = $queue->claimItem())) {
+      $function($item->data);
+      $queue->deleteItem($item);
+    }
+  }
+}
+
+/**
+ * Implements hook_node_presave().
+ */
+function brookfield_salesforce_node_presave($node) {
+
+  if ($node->type == 'lot') {
+    if (empty($node->field_community_reference)  && !empty($node->field_neighborhood_reference)) {
+      $neighbohood = node_load($node->field_neighborhood_reference['und'][0]['target_id']);
+      $community_nid = $neighbohood->field_community_reference['und'][0]['target_id'];
+
+      if ($community_nid != NULL) {
+        $node->field_community_reference['und'][0]['target_id'] = $community_nid;
+      }
+    }
+
+    $clear_user_ref = array('Not for sale', 'Available for sale', 'Lot is reserved');
+
+    if (in_array($node->field_lot_status[LANGUAGE_NONE][0]['value'], $clear_user_ref)) {
+      $node->field_customer_reference = array();
+    }
+
+    // Try and populate the superintendant and service manager references on the lot
+    if(!empty($node->is_new)){
+      // Load the vendor node's by thier string ID and add the node id's to the reference fields
+      if(!empty($node->field_lot_superintendent_name['und'][0]['value'])){
+        if($super_vendor = brookfield_punchlist_vendor_lookup($node->field_lot_superintendent_name['und'][0]['value'])){
+          $node->field_lot_super_ref['und'][0]['target_id'] = $super_vendor['id'];
+        }
+      }
+      if(!empty($node->field_lot_superintendent_name['und'][0]['value'])){
+        if($manager_vendor = brookfield_punchlist_vendor_lookup($node->field_lot_service_manager_name['und'][0]['value'])){
+          $node->field_lot_service_manager_ref['und'][0]['target_id'] = $manager_vendor['id'];
+        }
+      }
+    }
+    else{
+      // If the manager or super changed, update the reference to the new person or empty if they've been removed
+      if($node->field_lot_superintendent_name['und'][0]['value'] != $node->original->field_lot_superintendent_name['und'][0]['value']){
+        if(!empty($node->field_lot_superintendent_name['und'][0]['value'])){
+          if($super_vendor = brookfield_punchlist_vendor_lookup($node->field_lot_superintendent_name['und'][0]['value'])){
+            $node->field_lot_super_ref['und'][0]['target_id'] = $super_vendor['id'];
+          }
+        }
+        else{
+          $node->field_lot_super_ref = array();
+        }
+      }
+      if($node->field_lot_service_manager_name['und'][0]['value'] != $node->original->field_lot_service_manager_name['und'][0]['value']){
+        if(!empty($node->field_lot_superintendent_name['und'][0]['value'])){
+          if($manager_vendor = brookfield_punchlist_vendor_lookup($node->field_lot_service_manager_name['und'][0]['value'])){
+            $node->field_lot_service_manager_ref['und'][0]['target_id'] = $manager_vendor['id'];
+          }
+        }
+        else{
+          $node->field_lot_service_manager_ref = array();
+        }
+      }
+    }
+  }
+
+}
+
+/**
+ * Implements hook_salesforce_push_entity_allowed().
+ */
+function brookfield_salesforce_salesforce_push_entity_allowed($entity_type, $entity, $sf_sync_trigger) {
+  if ($entity_type == 'node') {
+    if ($entity->type != 'customer_service_request') {
+      return FALSE;
+    }
+  }
+}
+
+/**
+ * Function that will render a SOQL Null.
+ *
+ * The goal of this function is to provide the quickest NULL result when quering
+ * the Salesforce DB. Feel free to modify and optimize as needed.
+ */
+function brookfield_salesforce_null_query(SalesforceSelectQuery &$query) {
+  $query->limit = 1;
+  $date = date('Y-m-d', REQUEST_TIME) . 'T23:59:59Z';
+  $query->conditions[0] = array(
+    'field' => 'CreatedDate',
+    'operator' => '>',
+    'value' => $date,
+    'condition' => 'AND',
+  );
+}
+
+
+function brookfield_salesforce_service_request_query($pull_type, $conds, $current, $total, &$context) {
+
+$context['message'] = t('Now processing %current of %total', array('%current' => $current, '%total' => $total));
+
+ $sfapi = salesforce_get_api();
+  if ($sfapi->isAuthorized()) {
+
+    $mapped_fields = array();
+    $mapped_record_types = array();
+
+    // Iterate over each field mapping to determine our query parameters.
+    foreach (salesforce_mapping_load_multiple(array('salesforce_object_type' => $pull_type)) as $mapping) {
+      foreach ($mapping->field_mappings as $field_map) {
+        // Exclude field mappings that are only drupal to SF.
+        if (in_array($field_map['direction'], array(SALESFORCE_MAPPING_DIRECTION_SYNC, SALESFORCE_MAPPING_DIRECTION_SF_DRUPAL))) {
+          // Some field map types (Relation) store a collection of SF objects.
+          if (is_array($field_map['salesforce_field']) && !isset($field_map['salesforce_field']['name'])) {
+            foreach ($field_map['salesforce_field'] as $sf_field) {
+              $mapped_fields[$sf_field['name']] = $sf_field['name'];
+            }
+          }
+          // The rest of are just a name/value pair.
+          else {
+            $mapped_fields[$field_map['salesforce_field']['name']] = $field_map['salesforce_field']['name'];
+          }
+        }
+      }
+
+      if (!empty($mapped_fields) && isset($mapping->salesforce_record_type)  && $mapping->salesforce_record_type != SALESFORCE_MAPPING_DEFAULT_RECORD_TYPE) {
+        $mapped_record_types[$mapping->salesforce_record_type] = $mapping->salesforce_record_type;
+        // Add the RecordTypeId field so we can use it when processing the
+        // queued SF objects.
+        $mapped_fields['RecordTypeId'] = 'RecordTypeId';
+      }
+    }
+
+    if (empty($mapped_fields)) {
+      return;
+    }
+
+    $soql = new SalesforceSelectQuery($pull_type);
+    $soql->fields = array('Id', 'LastModifiedDate');
+    foreach ($mapped_fields as $field) {
+      // Don't add the Id field to the SOQL query.
+      if ($field == 'Id') {
+        continue;
+      }
+      $soql->fields[] = $field;
+    }
+
+    if (count($mapped_record_types) > 0) {
+      $soql->addCondition('RecordTypeId', $mapped_record_types, 'IN');
+    }
+
+    foreach ($conds as $cond) {
+      $soql->addCondition($cond['field'], $cond['value'], $cond['operator']);
+    }
+
+    // Execute query.
+    $results = $sfapi->query($soql);
+    $version_path = parse_url($sfapi->getApiEndPoint(), PHP_URL_PATH);
+
+    if (!isset($results['errorCode'])) {
+      // Write items to the batch.
+      foreach ($results['records'] as $key => $result) {
+          salesforce_pull_process_records($result);
+      }
+
+      // Handle requests larger than the batch limit (usually 2000).
+      $next_records_url = isset($results['nextRecordsUrl']) ?
+        str_replace($version_path, '', $results['nextRecordsUrl']) :
+        FALSE;
+      while ($next_records_url) {
+        $new_result = $sfapi->apiCall($next_records_url);
+        if (!isset($new_result['errorCode'])) {
+          // Write items to the queue.
+          foreach ($new_result['records'] as $result) {
+              salesforce_pull_process_records($result);
+          }
+        }
+        $next_records_url = isset($new_result['nextRecordsUrl']) ?
+          str_replace($version_path, '', $new_result['nextRecordsUrl']) : FALSE;
+      }
+    }
+    else {
+      watchdog('Brookfield Salesforce Pull', $results['errorCode'] . ':' . $results['message'], array(), WATCHDOG_ERROR);
+    }
+
+  }
+
+}
+/**
+ * Runs a pull query from Salesforce.
+ *
+ * @param string $pull_type
+ *   The machine name of the salesforce mapper.
+ * @param array $conds
+ *   multi dimensional array consisting of value, operator, and field.
+ *   <code>
+ *   $conds = array(
+ *   '0' => array(
+ *     'field' => 'field_name',
+ *     'value' => 'Some value',
+ *     'operator' -> 'IN, LIKE, !=, = etc'
+ *     ''
+ *     )
+ *   )
+ *   </code>
+ */
+function brookfield_salesforce_pull_records($pull_type, $conds, &$batch = NULL) {
+  $sfapi = salesforce_get_api();
+  if ($sfapi->isAuthorized()) {
+
+    $mapped_fields = array();
+    $mapped_record_types = array();
+
+    // Iterate over each field mapping to determine our query parameters.
+    foreach (salesforce_mapping_load_multiple(array('salesforce_object_type' => $pull_type)) as $mapping) {
+      foreach ($mapping->field_mappings as $field_map) {
+        // Exclude field mappings that are only drupal to SF.
+        if (in_array($field_map['direction'], array(SALESFORCE_MAPPING_DIRECTION_SYNC, SALESFORCE_MAPPING_DIRECTION_SF_DRUPAL))) {
+          // Some field map types (Relation) store a collection of SF objects.
+          if (is_array($field_map['salesforce_field']) && !isset($field_map['salesforce_field']['name'])) {
+            foreach ($field_map['salesforce_field'] as $sf_field) {
+              $mapped_fields[$sf_field['name']] = $sf_field['name'];
+            }
+          }
+          // The rest of are just a name/value pair.
+          else {
+            $mapped_fields[$field_map['salesforce_field']['name']] = $field_map['salesforce_field']['name'];
+          }
+        }
+      }
+
+      if (!empty($mapped_fields) && isset($mapping->salesforce_record_type)  && $mapping->salesforce_record_type != SALESFORCE_MAPPING_DEFAULT_RECORD_TYPE) {
+        $mapped_record_types[$mapping->salesforce_record_type] = $mapping->salesforce_record_type;
+        // Add the RecordTypeId field so we can use it when processing the
+        // queued SF objects.
+        $mapped_fields['RecordTypeId'] = 'RecordTypeId';
+      }
+    }
+
+    if (empty($mapped_fields)) {
+      return;
+    }
+
+    $soql = new SalesforceSelectQuery($pull_type);
+    $soql->fields = array('Id', 'LastModifiedDate');
+    foreach ($mapped_fields as $field) {
+      // Don't add the Id field to the SOQL query.
+      if ($field == 'Id') {
+        continue;
+      }
+      $soql->fields[] = $field;
+    }
+
+    if (count($mapped_record_types) > 0) {
+      $soql->addCondition('RecordTypeId', $mapped_record_types, 'IN');
+    }
+
+    foreach ($conds as $cond) {
+      $soql->addCondition($cond['field'], $cond['value'], $cond['operator']);
+    }
+
+    // Set this here so the query works
+    if($pull_type == 'DefectCodeGroup__c'){
+      $_SESSION['brookfield']['defect_code_group_pull'] = TRUE;
+    }
+
+    // Execute query.
+    $results = $sfapi->query($soql);
+
+    // Disable defect code groups when this query is done to prevent normal
+    // pull processing from importing dcg records
+    if($pull_type == 'DefectCodeGroup__c'){
+      $_SESSION['brookfield']['defect_code_group_pull'] = FALSE;
+    }
+
+    $version_path = parse_url($sfapi->getApiEndPoint(), PHP_URL_PATH);
+
+    if (!isset($results['errorCode'])) {
+      // Write items to the batch.
+      foreach ($results['records'] as $key => $result) {
+        if(!empty($batch)){
+          $batch['operations'][] = array('salesforce_pull_process_records', array($result));
+        }
+        else{
+          salesforce_pull_process_records($result);
+        }
+      }
+
+      // Handle requests larger than the batch limit (usually 2000).
+      $next_records_url = isset($results['nextRecordsUrl']) ?
+        str_replace($version_path, '', $results['nextRecordsUrl']) :
+        FALSE;
+      while ($next_records_url) {
+        $new_result = $sfapi->apiCall($next_records_url);
+        if (!isset($new_result['errorCode'])) {
+          // Write items to the queue.
+          foreach ($new_result['records'] as $result) {
+
+            if(!empty($batch)){
+              $batch['operations'][] = array('salesforce_pull_process_records', array($result));
+            }
+            else{
+              salesforce_pull_process_records($result);
+            }
+
+          }
+        }
+        $next_records_url = isset($new_result['nextRecordsUrl']) ?
+          str_replace($version_path, '', $new_result['nextRecordsUrl']) : FALSE;
+      }
+    }
+    else {
+      watchdog('Brookfield Salesforce Pull', $results['errorCode'] . ':' . $results['message'], array(), WATCHDOG_ERROR);
+    }
+
+  }
+
+}
+
+function brookfield_salesforce_pull_finished($success, $results, $operations){
+  // make sure this is unset, it forces all records from salesforce to update and would be a huge performance hit
+  unset($_SESSION['brookfield']['salesforce_pull_force_update']);
+}
+
+function brookfield_salesforce_mapping_delete_orphans() {
+
+  $sql = "SELECT sf.entity_id, sf.entity_type, sf.salesforce_id
+    FROM salesforce_mapping_object sf
+    WHERE sf.entity_type = 'node'
+    AND NOT EXISTS(SELECT NULL FROM node n WHERE n.nid = sf.entity_id)";
+
+  $results = db_query($sql)->fetchAll();
+
+  foreach ($results as $result) {
+    $num_deleted = db_delete('salesforce_mapping_object')
+    ->condition('salesforce_id', $result->salesforce_id)
+    ->execute();
+  }
+}
+
+/**
+ * Implements hook_salesforce_pull_entity_value_alter().
+ *
+ * This is here because field collections can't have thier host entity field
+ * updated and will error out if you try but the salesforce pull module doesn't
+ * check for that. What we do here is check for an update on an existing object
+ * and not allow an update to the host entity field by unsetting the value.
+ * Back in the salesforce pull module the function will ignore the entity save
+ * since there's no value now. Not a good solution at all but it prevents
+ * exceptions and watchdog flooding at least.
+ *
+ */
+function brookfield_salesforce_salesforce_pull_entity_value_alter(&$value, $field_map, $sf_object) {
+  if($mapping_object = salesforce_mapping_object_load_by_sfid($sf_object['Id'])){
+    if($field_map['drupal_field']['fieldmap_value'] == 'host_entity'){
+      $value = NULL;
+    }
+  }
+}

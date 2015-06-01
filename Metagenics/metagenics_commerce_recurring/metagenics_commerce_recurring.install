@@ -1,0 +1,86 @@
+<?php
+
+
+function metagenics_commerce_recurring_schema() {
+  $schema = array();
+
+  $schema['metagenics_commerce_recurring_process_queue'] = array(
+    'description' => 'Metagenics custom recurring order processing queue',
+    'fields' => array(
+
+      'qid' => array(
+        'description' => 'The primary identifier for a queue item.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+
+      'template_nid' => array(
+        'description' => 'The template nid',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'processing_status' => array(
+        'description' => 'Processing status',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+      ),
+
+      'frequency' => array(
+        'description' => 'The shipping frequency set in the ARO template',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+      ),
+
+      'template_next_order_date' => array(
+        'description' => 'The Unix timestamp Next Ship date according to the ARO template',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+
+      'pending_order_date' => array(
+        'description' => 'The Unix timestamp order will ship on based on when it was added to the queue.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+
+      'order_date' => array(
+        'description' => 'The Unix timestamp date this order was acutally processed',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+
+      'data' => array(
+        'type' => 'blob',
+        'not null' => FALSE,
+        'size' => 'big',
+        'serialize' => TRUE,
+        'description' => 'A serialized array of name value pairs that are related to the order. You should not rely on any values in this table to determine if an order should ship.',
+      ),
+    ),
+
+    'unique keys' => array(
+      'template_instance' => array('template_nid', 'pending_order_date'),
+    ),
+
+    'primary key' => array('qid'),
+
+  );
+
+  return $schema;
+}
+
+/**
+ * Add schema for our custom table.
+ */
+function metagenics_commerce_recurring_update_7101(&$sandbox) {
+  if (db_table_exists('metagenics_commerce_recurring_process_queue') == FALSE) {
+    drupal_install_schema('metagenics_commerce_recurring');
+  }
+}

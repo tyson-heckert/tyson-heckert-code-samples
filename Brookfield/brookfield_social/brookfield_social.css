@@ -1,0 +1,193 @@
+/* Templates */
+.region-sidebar-second .block-brookfield-social h2.block-title {
+  color: #ffffff;
+  height: 40px;
+  margin: 0;
+  padding: 8px 19px;
+  text-shadow: 1px 1px 1px #253d80;
+}
+#block-brookfield-social-brookfield-social-facebook h2.block-title {
+  background: #43539C;
+}
+#block-brookfield-social-brookfield-social-youtube h2.block-title {
+  background: #A83A1F;
+}
+div#brookfield-social-wall {
+  background: #ffffff;
+}
+
+div.brookfield-social-post-message {
+  font-weight: 800;
+  padding-top: 12px;
+  clear: both;
+}
+div.brookfield-social-post-photo {
+  float: left;
+  margin-right: 10px;
+}
+div.brookfield-social-post-photo img {
+  width: 200px;
+}
+div.brookfield-social-share {
+  position: relative;
+}
+div.brookfield-social-share ul {
+  list-style: none;
+}
+div.brookfield-social-share .icon {
+  color: #3B55A0;
+  font-size: 1.6em;
+  margin: 8px 5px 0;
+}
+div.brookfield-social-share .counter {
+  position: absolute;
+  right: 5px;
+  margin-top: 7px;
+  font-size: 1.2em;
+}
+div#brookfield-social-wall .pager {
+  position: absolute;
+  z-index: 999;
+  top: 40%;
+  width: 100%;
+  font-size: 2.5em;
+}
+div#brookfield-social-wall .pager a:hover {
+  text-decoration: none;
+}
+
+/* JCAROUSEL */
+.block-brookfield-social .jcarousel-wrapper {
+    position: relative;
+}
+
+/** Carousel **/
+.block-brookfield-social .jcarousel {
+    position: relative;
+    overflow: hidden;
+}
+.block-brookfield-social .jcarousel ul {
+    width: 20000em;
+    position: relative;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.block-brookfield-social .jcarousel li {
+    float: left;
+    width: 303px;
+}
+
+.brookfield-social-share {float:left;}
+
+/********** updating styles with default jcarousel skin *****************/
+.block-brookfield-social .jcarousel .jcarousel-container-horizontal{
+  padding:20px 15px;
+  width:auto;
+  height:auto;
+}
+
+
+.block-brookfield-social .jcarousel-skin-default .jcarousel-item{
+  width:330px;
+  height:auto;
+  border:none;
+}
+
+.block-brookfield-social .jcarousel-skin-default{
+  text-align: left;
+}
+
+.block-brookfield-social .jcarousel-skin-default .jcarousel-next-horizontal{
+  top: 115px;
+  right: -15px;
+}
+
+.block-brookfield-social .jcarousel-skin-default .jcarousel-prev-horizontal{
+  top: 115px;
+  left: -15px;
+}
+
+.view-wordpress-feeds-view .jcarousel-skin-default .jcarousel-container-horizontal{
+  padding:0;
+  min-height:240px;
+}
+
+.dealcatcher-wrapper .jcarousel-container-horizontal{
+  padding:0;
+  min-height:350px;
+  height:auto;
+}
+
+.block-brookfield-social .dealcatcher-wrapper .jcarousel-skin-default .jcarousel-item{
+  width:370px;
+}
+
+.dealcatcher-wrapper .jcarousel-skin-default .jcarousel-item-horizontal{
+  margin:0;
+}
+
+.block-brookfield-social .view-wordpress-feeds-view .jcarousel-skin-default .jcarousel-prev-horizontal{
+  left: -35px;
+}
+
+.block-brookfield-social .view-wordpress-feeds-view .jcarousel-skin-default .jcarousel-next-horizontal{
+  right: -33px;
+}
+
+.block-brookfield-social .dealcatcher-wrapper .jcarousel-skin-default .jcarousel-prev-horizontal,
+.block-brookfield-social .dealcatcher-wrapper .jcarousel-skin-default .jcarousel-next-horizontal
+{
+  top: 265px;
+}
+
+
+.jcarousel-list-horizontal{
+  width:2000em;
+}
+
+@media screen and (min-width:1200px) {
+.jcarousel li { width: 370px; }
+}
+
+.dealcatcher-wrapper .brookfield-social-post-wrapper {padding:0;}
+.dealcatcher-wrapper .brookfield-social-post-photo {margin-right: 0;}
+.dealcatcher-wrapper .brookfield-social-post-photo img{width: 100%;}
+.dealcatcher-details{padding:15px 30px; float: left; width:100%;}
+.dealcatcher-wrapper .brookfield-social-post-merchant{color:#0080ce; font-weight: 500; font-size: 18px; font-style: 'Ubuntu', Helvetica, "Helvetica Neue", Arial, sans-serif;}
+.dealcatcher-wrapper .brookfield-social-post-merchant a{color:#0080ce;}
+.dealcatcher-wrapper .brookfield-social-post-title {font-weight: 500; font-size: 14px;}
+.dealcatcher-wrapper .jcarousel-control-next {position: absolute;right:-12px;}
+.dealcatcher-wrapper .jcarousel-control-prev {position: absolute;left:-12px;}
+.dealcatcher-wrapper .brookfield-social-post-location span span {
+  font-family:'Roboto', Helvetica, "Helvetica Neue", Arial, sans-serif;
+  margin-left: 8px;
+  font-size:14px;
+}
+.dealcatcher-wrapper .brookfield-social-post-location span.icon{font-size:16px;}
+.dealcatcher-wrapper .brookfield-social-post-location{ color:#888; float: left;  margin-top: 25px;}
+
+.brookfield-social-post-price-wrap{
+  float: right;
+  width: 40%;
+  text-align: right;
+  margin-top: 25px;
+}
+
+.brookfield-social-post-value{
+  float: left;
+  text-decoration: line-through;
+  font-size: 14px;
+}
+.brookfield-social-post-price{
+  float: right;
+  color:#e79300;
+  font-size:20px;
+  font-weight: 500;
+  font-family: 'Ubuntu', Helvetica, "Helvetica Neue", Arial, sans-serif;
+}
+
+#block-brookfield-social-brookfield-social-dealcatcher h2.block-title{background: none repeat scroll 0 0 #ea9104;
+color: #FFFFFF;
+margin-bottom: 0;
+padding: 10px;}

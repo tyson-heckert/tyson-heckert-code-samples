@@ -1,0 +1,224 @@
+
+#modalContent #bulk-media-upload-upload-form .form-submit{
+
+}
+
+/* Share photos email form */
+.brookfield-gallery-email-photo-form .form-type-checkbox {
+  display: inline-block;
+  margin-right: 20px;
+  background: #eee;
+  padding: 5px;
+  border: 1px solid #cccccc;
+}
+
+.brookfield-gallery-email-photo-form .form-type-checkbox input.form-checkbox {
+  float: none;
+  margin: 0;
+}
+
+.brookfield-gallery-email-photo-form .form-item-to {
+  clear: left;
+}
+
+.jcarousel-skin-default .jcarousel-clip-horizontal{
+  width:auto !important;
+}
+.jcarousel-skin-default .jcarousel-container-horizontal{
+  width:auto !important;
+}
+.brookfield-gallery-email-photo-form #edit-select-images {height: 186px; padding-top: 3px; overflow-y: scroll;}
+
+.view-display-id-gallery_dash_thumbnails .jcarousel-skin-default .jcarousel-container-horizontal{
+  height:auto;
+}
+
+.jcarousel-item{
+  border:none !important;
+}
+
+.views-exposed-form .views-exposed-widget {
+margin-right: 10px;
+vertical-align: top;
+}
+
+.view-display-id-gallery_large_grid .views-exposed-widget{
+  margin-top:20px;
+}
+
+.page-progress-gallery .view-display-id-gallery_public_grid .form-type-bef-checkbox,
+.page-neighborhood-gallery-public .view-display-id-neighborhood_gallery_public_grid .form-type-bef-checkbox{
+  box-sizing: border-box;
+display: inline-block;
+font-size: 14px;
+font-weight: 500;
+letter-spacing: 1px;
+line-height: normal;
+padding: 4px;
+width: 140px;
+zoom: 1;
+}
+
+.page-progress-gallery .view-display-id-gallery_public_grid .views-submit-button .btn,
+.page-neighborhood-gallery-public .view-display-id-neighborhood_gallery_public_grid .views-submit-button .btn{
+background: #58A53D;
+border: none;
+color: #FFF;
+font-family: 'Roboto', Helvetica, "Helvetica Neue", Arial, sans-serif;
+font-size: 14px;
+font-weight: 500;
+text-shadow: none;
+line-height: normal;
+padding: 4px 60px;
+margin-top: 41px;
+}
+
+.page-progress-gallery .view-display-id-gallery_public_grid .views-submit-button,
+.page-neighborhood-gallery-public .view-display-id-neighborhood_gallery_public_grid .views-submit-button{
+  margin:0;
+  padding:0;
+}
+
+.page-progress-gallery .view-display-id-gallery_large_master,
+.page-neighborhood-gallery-public .view-display-id-neighborhood_gallery_large_master,
+.page-buyer-gallery .view-display-id-home_buyer_public_main{
+  text-align: center;
+}
+
+.page-progress-gallery .view-display-id-gallery_large_master .views-field-field-gallery-image-description,
+.page-neighborhood-gallery-public .view-display-id-neighborhood_gallery_large_master .views-field-field-gallery-image-description,
+.page-buyer-gallery .view-display-id-home_buyer_public_main .views-field-field-gallery-image-description{
+  text-align: left;
+}
+
+
+.page-progress-gallery .view-display-id-gallery_public_grid,
+.page-neighborhood-gallery-public .view-display-id-neighborhood_gallery_public_grid{
+  width: 925px;
+  margin: 0 auto;
+}
+
+.page-buyer-gallery .view-display-id-home_buyer_public_thumbs{
+  margin: 0 auto;
+  margin-top:20px;
+  width: 910px;
+}
+
+.page-progress-gallery .view-display-id-gallery_public_grid .form-item-edit-field-gallery-phase-ref-tid-1096{
+  display:none;
+}
+
+.page-progress-gallery .view-display-id-gallery_public_grid .bef-select-as-checkboxes,
+.page-neighborhood-gallery-public .view-display-id-neighborhood_gallery_public_grid .bef-select-as-checkboxes{
+background: transparent;
+background-color: transparent;
+background-image: none;
+border: none;
+border-radius: 0;
+padding: 0;
+box-shadow: none;
+}
+
+.page-progress-gallery .view-display-id-gallery_public_grid .view-filters,
+.page-neighborhood-gallery-public .view-display-id-neighborhood_gallery_public_grid .view-filters{
+  background: none;
+}
+
+.page-progress-gallery .view-display-id-gallery_public_grid .views-widget-filter-field_gallery_phase_ref_tid{
+  margin:0;
+}
+
+/** additional admin page styles **/
+
+.view-gallery-admin .views-field-nothing{
+  text-align: right;
+  float:right;
+  width:140px;
+}
+
+.view-gallery-admin .remove-confirm{
+  background:#dedede;
+  border:1px solid #cecece;
+  padding:10px;
+  margin-top:5px;
+  display:none;
+}
+
+/** Construction Gallery Sorter **/
+.view-display-id-gallery_sorter tr {
+  border: none;
+  display: inline-block;
+  width: 25%;
+}
+
+
+/******* gallery admin styles *************/
+
+
+.view-gallery-admin .input-group-addon{
+  width:auto;
+}
+
+.view-id-gallery_admin.view-gallery-admin .views-row{
+  margin:8px;
+}
+
+.view-gallery-admin .views-exposed-form{
+  margin-bottom:10px;
+  padding-bottom:10px;
+  border-bottom:1px solid #ccc;
+}
+
+.view-gallery-admin .editablefield-item{
+  position:relative;
+}
+
+.view-gallery-admin .views-field-field-neighborhood-reference-1 .editablefield-edit-button{
+  position: absolute;
+  top: 5px;
+  right: 0;
+}
+
+.view-gallery-admin .views-field-nothing{
+  float:none;
+  width:auto;
+}
+
+.view-id-gallery_admin .form-actions{
+  display:none;
+}
+
+.view-id-gallery_admin .item-list .form-actions{
+  display:block;
+}
+
+.view-gallery-admin .views-field-field-neighborhood-reference-1 .form-control.form-text,
+.view-gallery-admin .views-field-field-neighborhood-reference-1 .help-block{
+  max-width:215px;
+}
+
+/*** gallery dashboard contextual link styles ***/
+
+.view-construction-gallery .dropdown-menu,
+.view-neighborhood-gallery .dropdown-menu{
+  top:70px;
+  left:-27px;
+  border-top:0;
+}
+
+/*** lot dashboard home buyer sidebar styles ****/
+
+.view-home-buyer-photo.view-display-id-block img{
+  width:100%;
+  height:auto;
+}
+
+.view-home-buyer-photo.view-display-id-block .gallery-share-email{
+  position: absolute;
+  top: 40px;
+  left: 5px;
+}
+
+.view-id-home_buyer_photo.view-display-id-block{
+  position:relative;
+}

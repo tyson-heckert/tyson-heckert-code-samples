@@ -1,0 +1,80 @@
+<?php
+
+
+require_once TPT_ROOT . '/' . ('transperfect_common.inc');
+require_once TPT_ROOT . '/' . ('transperfect_core_constants.inc');
+require_once TPT_ROOT . '/' . ('transperfect_receive_translations.inc');
+require_once TPT_ROOT . '/' . ('transperfect_field_configuration.inc');
+
+require_once drupal_get_path('module', 'metagenics_transperfect').'/metagenics_transperfect_common.inc';
+require_once drupal_get_path('module', 'metagenics_transperfect').'/metagenics_transperfect_entity.inc';
+
+
+/**
+ * Implements hook_permission().
+ */
+function metagenics_transperfect_permission() {
+  return array(TPT_ROLE_MANAGE_TRANSLATIONS => array('title' => TPT_ROLE_MANAGE_TRANSLATIONS),
+      TPT_ROLE_DO_TRANSALTIONS => array('title' => TPT_ROLE_DO_TRANSALTIONS),
+      TPT_ROLE_VIEW_TRANSLATIONS => array('title' => TPT_ROLE_VIEW_TRANSLATIONS));
+}
+
+/**
+ * Implements hook_menu().
+ */
+function metagenics_transperfect_menu() {
+  $items = array();
+
+   $items [transperfect_get_root_menu('transperfect-translations/dashboard/entities')] = array(
+      'title' => ' Entities ',
+      'page callback' => 'metagenics_transperfect_dashboard_page',
+      'access callback' => 'tpt_access_callback_any',
+      'type' => MENU_LOCAL_TASK,
+      'file' => 'metagenics_transperfect_send_translations.inc',
+      'weight' => 10,
+      'page arguments' => array('entity'),
+  );
+
+  $items [transperfect_get_root_menu('transperfect-translations/activeSubmissions/entities')] = array(
+      'title' => ' Entities ',
+      'page callback' => 'metagenics_transperfect_dashboard_active_submissions_page',
+      'access callback' => 'tpt_access_callback_any',
+      'file' => 'metagenics_transperfect_active_submissions.inc',
+      'type' => MENU_LOCAL_TASK,
+      'weight' => 10,
+      'page arguments' => array('entity'),
+  );
+
+  $items [transperfect_get_root_menu('transperfect-translations/receiveTranslation/entities')] = array(
+      'title' => ' Entites ',
+      'page callback' => 'metagenics_transperfect_dashboard_receive_page',
+      'access callback' => 'tpt_access_callback_any',
+      'file' => 'metagenics_transperfect_receive_translations.inc',
+      'type' => MENU_LOCAL_TASK,
+      'weight' => 10,
+      'page arguments' => array('entity'),
+  );
+  $items[transperfect_get_root_menu('transperfect-translations/receiveTranslation/entities/preview')] = array(
+      'title' => 'Preview Translation',
+      'page callback' => 'preview_translated_content',
+      'file' => 'metagenics_transperfect_receive_translations.inc',
+      'access callback' => 'tpt_access_callback_admin',
+      'type' => MENU_CALLBACK,
+  );
+
+
+  return $items;
+}
+
+/**
+ * Implements hook_cron().
+ */
+//need this?
+/*
+function transperfect_cron() {
+//Only run this if settings are set to Drupal Cron
+  if (1 == variable_get('transperfect_cron_type', 0)) {
+    receive_translated_contents_automatically('hook_cron');
+  }
+}
+*/

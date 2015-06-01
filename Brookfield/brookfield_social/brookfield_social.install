@@ -1,0 +1,43 @@
+<?php
+/**
+ * @file
+ * Install file for brookfield_social module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function brookfield_social_schema() {
+  $schema = array();
+
+  $schema['brookfield_social_albums'] = array(
+    'description' => 'Stores Brookfield Facebook albums.',
+    'fields' => array(
+      'entity_id' => array(
+        'description' => 'The user id attached to this album',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'album_id' => array(
+        'description' => 'The Facebook album id',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+    ),
+    'unique_keys' => array(
+      'album_id' => array('album_id'),
+    ),
+    'primary key' => array('album_id'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function brookfield_social_uninstall() {
+  variable_del('brookfield_social_page_id');
+}

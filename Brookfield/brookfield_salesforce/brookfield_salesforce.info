@@ -1,0 +1,7 @@
+name = Brookfield salesforce
+description = Functions for altering the way salesforce integrates with drupal
+core = 7.x
+package = Brookfield
+
+dependencies[] = salesforce
+dependencies[] = salesforce_mapping

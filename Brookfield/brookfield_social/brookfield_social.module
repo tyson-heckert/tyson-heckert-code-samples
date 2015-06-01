@@ -1,0 +1,486 @@
+<?php
+/**
+ * @file
+ * Defines functionality for the brookfield_social module.
+ */
+
+define('YOUTUBE_API_KEY', 'AIzaSyBJYfgoayY7CZujUcwq4S5I2EFLqQ9pzCY');
+
+/**
+ * Implements hook_menu().
+ */
+function brookfield_social_menu() {
+  $items = array();
+
+  $items['admin/config/brookfield/brookfield_social'] = array(
+    'title' => 'Brookfield Social Settings',
+    'description' => 'Set custom settings and defaults for brookfield social plugins',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('brookfield_social_admin_settings_form'),
+    'access arguments' => array('administer nodes'),
+    'file' => 'brookfield_social.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function brookfield_social_form_alter(&$form, &$form_state, $form_id) {
+  switch ($form_id) {
+    case 'fboauth_settings_form':
+      $form['brookfield_social_page_id'] = array(
+        '#title' => t('Page Username/ID'),
+        '#type' => 'textfield',
+        '#default_value' => variable_get('brookfield_social_page_id', ''),
+        '#description' => t('Enter your Facebook page username or ID. You can find your account info by visiting https://graph.facebook.com/your_username. Example username: "BrookfieldSoCal".'),
+        '#required' => TRUE,
+        '#weight' => -1,
+      );
+
+      $form['#submit'][] = 'brookfield_social_set_page_id';
+      break;
+  }
+}
+
+/**
+ * Submit callback to set the page id.
+ */
+function brookfield_social_set_page_id($form, &$form_state) {
+  variable_set('brookfield_social_page_id', $form_state['values']['brookfield_social_page_id']);
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function brookfield_social_block_info() {
+  $blocks = array();
+
+  $blocks['brookfield_social_facebook'] = array(
+    'info' => t('Facebook News Feed'),
+  );
+
+  $blocks['brookfield_social_share_photo'] = array(
+    'info' => t('Facebook Share Photo'),
+  );
+
+  $blocks['brookfield_social_youtube'] = array(
+    'info' => t('YouTube Feed'),
+  );
+
+  $blocks['brookfield_social_dealcatcher'] = array(
+    'info' => t('Helpful Groupons'),
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function brookfield_social_block_view($delta = '') {
+  $block = array();
+
+  switch ($delta) {
+    case 'brookfield_social_facebook':
+      $block['subject'] = t('Facebook News Feed');
+      $block['content'] = brookfield_social_display_facebook();
+      break;
+
+    case 'brookfield_social_share_photo':
+      $block['subject'] = t('Share on Facebook');
+      $block['content'] = fboauth_action_display('brookfield_social_share_photo', current_path());
+      break;
+
+    case 'brookfield_social_youtube':
+      $block['subject'] = t('Video Feed');
+      $block['content'] = brookfield_social_display_youtube();
+      break;
+
+    case 'brookfield_social_dealcatcher':
+      $block['subject'] = t('Deal Catcher');
+      $block['content'] = brookfield_social_dealcatcher_get_deals_by_ip();
+      break;
+  }
+
+  return $block;
+}
+
+/**
+ * Returns content to be displayed in the Facebook News Feed block.
+ */
+function brookfield_social_display_facebook() {
+  if ($pagefeed = brookfield_social_get_feed()) {
+    $output = array();
+
+    // Pass the app id to the script.
+    $settings = array(
+      'appId' => variable_get('fboauth_id'),
+    );
+
+    $output['#attached']['js'][] = array(
+      'data' => array('brookfieldFB' => $settings),
+      'type' => 'setting',
+    );
+
+    // Grab the larger image instead of smaller.
+    foreach ($pagefeed['data'] as $key => $data) {
+      if (isset($data['picture'])) {
+        $pagefeed['data'][$key]['picture'] = str_replace('_s.', '_n.', $data['picture']);
+      }
+    }
+
+    $output['brookfield_social_display_facebook'] = array(
+      '#theme' => 'brookfield_social_theme_facebook',
+      '#pagefeed' => $pagefeed,
+    );
+
+    return $output;
+  }
+}
+
+/**
+ * Helper function to get the feed from the page ID saved in fboauth settings.
+ */
+function brookfield_social_get_feed() {
+  // @TODO Look into using fboauth to get page wall feed.
+  // $link = fboauth_action_link_properties('brookfield_social_get_wall', current_path());
+  // $url = url($link['href'], array('query' => $link['query']));
+  // drupal_goto($url);
+
+  $facebook = brookfield_social_get_api_object();
+
+  try {
+    $page_id = variable_get('brookfield_social_page_id', '');
+    $pagefeed = $facebook->api('/' . $page_id . '/posts');
+  }
+  catch (FacebookApiException $e) {
+    watchdog('brookfield_social', 'Facebook Wall Feed Error: ' . $e, array(), WATCHDOG_NOTICE);
+    drupal_set_message($e, 'error');
+    return FALSE;;
+  }
+  return $pagefeed;
+}
+
+/**
+ * Helper function to create the Facebook object.
+ */
+function brookfield_social_get_api_object() {
+  require_once 'sites/all/libraries/facebook-php-sdk-master/src/facebook.php';
+
+  $config = array();
+  $config['appId'] = variable_get('fboauth_id');
+  $config['secret'] = variable_get('fboauth_secret');
+
+  $facebook = new Facebook($config);
+
+  return $facebook;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function brookfield_social_theme($existing, $type, $theme, $path) {
+  return array(
+    'brookfield_social_theme_facebook' => array(
+      'template' => 'templates/brookfield_social.facebook',
+      'variables' => array(
+        'pagefeed' => NULL,
+      ),
+    ),
+    'brookfield_social_theme_youtube' => array(
+      'template' => 'templates/brookfield_social.youtube',
+      'variables' => array(
+        'videos' => NULL,
+      ),
+    ),
+    'brookfield_social_theme_dealcatcher' => array(
+      'template' => 'templates/brookfield_social.dealcatcher',
+      'variables' => array(
+        'deals' => NULL,
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_fboauth_actions().
+ */
+function brookfield_social_fboauth_actions() {
+  $actions['brookfield_social_share_photo'] = array(
+    'title' => t('Share photo'),
+    'callback' => 'brookfield_social_fboauth_action_share_photo',
+    'permissions' => array(
+      'user_photos',
+      'publish_actions',
+    ),
+    // Optionally define a theme function for printing out your link (not
+    // including the "theme_" prefix). If you use this option, you must register
+    // this function in hook_theme(). If you don't use this option, the link
+    // will be output with the theme_fboauth_action() function or the automatic
+    // suggestion theme_fboauth_action__[action_name]().
+    // 'theme' => 'mymodule_fboauth_action',
+  );
+
+  $actions['brookfield_social_get_facebook'] = array(
+    'title' => t('Get Facebook Wall'),
+    'callback' => 'brookfield_social_fboauth_action_get_facebook',
+  );
+  return $actions;
+}
+
+/**
+ * Implements hook_fboauth_actions_alter().
+ */
+function brookfield_social_fboauth_actions_alter(&$actions, $image_id = NULL) {
+  switch ($actions) {
+    case 'brookfield_social_share_photo':
+      if (isset($image_id)) {
+        $actions['brookfield_social_share_photo']['properties'] = $image_id;
+      }
+      break;
+  }
+}
+
+/**
+ * Fboauth action callback for sharing photos and creating an album.
+ */
+function brookfield_social_fboauth_action_share_photo($app_id, $access_token) {
+  global $user;
+  $create_album = TRUE;
+
+  // Check if Brookfield album currently exists.
+  $user_albums = db_select('brookfield_social_albums', 'bfba')
+  ->condition('bfba.entity_id', $user->uid)
+  ->fields('bfba', array('album_id'))
+  ->execute()
+  ->fetchCol('album_id');
+  $fbalbums = fboauth_graph_query('me/albums', $access_token);
+  foreach ($fbalbums->data as $key => $data) {
+    if (in_array($data->id, $user_albums)) {
+      $create_album = FALSE;
+      $album_id = $data->id;
+      break;
+    }
+  }
+
+  // Delete inactive user album ids.
+  $delete = array_diff($user_albums, array($album_id));
+  if (!empty($delete)) {
+    db_delete('brookfield_social_albums')
+    ->condition('album_id', $delete[0])
+    ->execute();
+  }
+
+  // Else create the album for the user.
+  if ($create_album) {
+    $params = array(
+      'name' => 'My Brookfield Home',
+      'message' => 'Check out my new home!',
+    );
+    $result = fboauth_graph_query('me/albums', $access_token, $params, 'POST');
+
+    // Output results.
+    if (isset($result->id)) {
+
+      // Store the album ID in the database.
+      $album_id = $result->id;
+      $record = array(
+        'entity_id' => $user->uid,
+        'album_id' => $album_id,
+      );
+      drupal_write_record('brookfield_social_albums', $record);
+      drupal_set_message(t('A new Facebook album titled "My Brookfield Home" has been created for you to share your new home photos!'));
+    }
+    else {
+      drupal_set_message(t('There was an error creating your new home album.'), 'error');
+    }
+  }
+
+  // Add picture to the album.
+  $image_id = $_SESSION['brookfield'][$user->uid . '_image_share'];
+  $image = node_load($image_id);
+  $url = file_create_url($image->field_gallery_image[LANGUAGE_NONE][0]['uri']);
+  $params = array(
+    'url' => $url,
+  );
+  $result = fboauth_graph_query($album_id . '/photos', $access_token, $params, 'POST');
+  if (isset($result->id)) {
+    drupal_set_message(t('Your message has been uploaded to your Brookfield Home Photos Facebook album!'));
+  }
+  else {
+    drupal_set_message(t('Your photo was not uploaded to Facebook. Make sure you are not trying to upload from a localhost.'), 'error');
+  }
+}
+
+/**
+ * Implements hook_user_delete().
+ */
+function brookfield_social_user_delete($account) {
+  db_delete('brookfield_social_albums')
+  ->condition('entity_id', $account->uid)
+  ->execute();
+}
+
+/**
+ * Fboauth action callback to get page feed.
+ *
+ * This function is currently not being used because fboauth is not being used
+ * to pull the FB feed. The Facebook PHP SDK is currently being used and if
+ * possible, it might be nice to switch to fboauth.
+ */
+function brookfield_social_fboauth_action_get_facebook($app_id, $access_token) {
+  $page_id = variable_get('brookfield_social_page_id');
+  $feed = fboauth_graph_query('/' . $page_id . '/feed');
+
+  return $feed;
+}
+
+/**
+ * Helper function to return the Brookfield YouTube feed contents.
+ */
+function brookfield_social_display_youtube() {
+
+/*
+
+  // For connecting to youtube api v3.
+
+  $obj = drupal_http_request('https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&forUsername=BrookfieldSoCal&key=' . YOUTUBE_API_KEY);
+
+  $channel = drupal_http_request('https://www.googleapis.com/youtube/v3/channels?part=snippet&forUsername=BrookfieldSoCal&key=' . YOUTUBE_API_KEY);
+
+  $playlist = drupal_http_request('https://www.googleapis.com/youtube/v3/playlists?part=snippet&channelId=UCDgA2bKa8GaLi_mrlDJ6GdA&key=' . YOUTUBE_API_KEY);
+
+  $playlist_items = drupal_http_request('https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=FLDgA2bKa8GaLi_mrlDJ6GdA&key=' . YOUTUBE_API_KEY);
+
+  dsm($playlist_items);
+*/
+
+  // Legacy URL, does not work anymore
+  //$obj = drupal_http_request('https://gdata.youtube.com/feeds/api/users/BrookfieldSoCal/uploads');
+
+  $obj = drupal_http_request('https://www.youtube.com/feeds/videos.xml?channel_id=UCDgA2bKa8GaLi_mrlDJ6GdA');
+
+  $xml = simplexml_load_string($obj->data);
+  $entries = $xml->entry;
+
+  foreach($entries as $entry){
+    $media = $entry->children('http://search.yahoo.com/mrss/')->group->thumbnail->attributes();
+    $thumb = (string) $media['url'];
+
+    $link = $entry->link->attributes();
+    $link_url = (string) $link['href'];
+
+    $published = $entry->published;
+    $title = $entry->title;
+
+    $videos[] = array('thumb' => $thumb, 'link' => $link_url, 'title' => $title, 'date_published' => $date);
+  }
+
+  $output['youtube_feed'] = array(
+    '#theme' => 'brookfield_social_theme_youtube',
+    '#videos' => $videos,
+  );
+
+  return $output;
+}
+
+/**
+ * Helper function to return block content for groupon.
+ *
+ * @return string
+ *   Returns the HTML for the groupon block content.
+ */
+function brookfield_social_dealcatcher_get_deals_by_ip() {
+  $limit = variable_get('brookfield_social_dealcatcher_count', 10);
+  $local = array_filter(variable_get('brookfield_social_dealcatcher_local', ''));
+  $goods = array_filter(variable_get('brookfield_social_dealcatcher_goods', ''));
+
+  $local = !empty($local) ? '&filters=category:' . implode('&filters=category:', $local) : '';
+  $goods = !empty($goods) ? '&filters=category:' . implode('&filters=category:', $goods) : '';
+
+  $url = 'https://partner-api.groupon.com/deals.json?tsToken=US_AFF_0_201236_212556_0&offset=0&limit=' . $limit . $local . $goods;
+  $query = drupal_http_request($url);
+  $deals = json_decode($query->data);
+
+  $output[] = array(
+    '#theme' => 'brookfield_social_theme_dealcatcher',
+    '#deals' => $deals,
+  );
+
+  return $output;
+}
+
+/**
+ * Helper function to return the available categories for groupon.
+ *
+ * Unfortunately, Groupon doesn't provide a url to grab the categories from and
+ * they must be hardcoded...
+ */
+function brookfield_social_get_dealcatcher_categories() {
+  return array(
+    'local' => array(
+      'food-and-drink' => t('Food and Drink'),
+      'events-and-activities' => t('Events and Activities'),
+      'beauty-and-spas' => t('Beauty and Spas'),
+      'health-and-fitness' => t('Health and Fitness'),
+      'home-improvement' => t('Home Improvement'),
+      'local-services' => t('Local Services'),
+      'shopping' => t('Shopping'),
+      'automotive' => t('Automotive'),
+    ),
+    'goods' => array(
+      'electronics-goods' => t('Electronics Goods'),
+      'apparel-and-accessories' => t('Apparel and Accessories'),
+      'automotive-goods' => t('Automotive Goods'),
+      'baby-goods' => t('Baby Goods'),
+      'entertainment-and-media' => t('Entertainment and Media'),
+      'food-and-drink-goods' => t('Food and Drink Goods'),
+      'health-and-beauty-goods' => t('Health and Beauty Goods'),
+      'home-goods' => t('Home Goods'),
+      'pets-good' => t('Pets Goods'),
+      'sports-and-outdoors-goods' => t('Sports and Outdoors Goods'),
+      'tools-and-diy-goods' => t('Tools and DIY Goods'),
+      'toys' => t('Toys'),
+    ),
+  );
+}
+
+function template_preprocess_brookfield_social_theme_facebook(&$variables) {
+  $settings = array(
+      'scroll' => 1,
+      'wrap' => 'circular',
+      'auto' => 8,
+    );
+
+  jcarousel_add('jcarouselfblist', $settings);
+  brookfield_social_add_js_css();
+}
+
+function template_preprocess_brookfield_social_theme_youtube(&$variables) {
+  $settings = array(
+    'scroll' => 1,
+    'wrap' => 'circular',
+    'auto' => 10,
+  );
+  jcarousel_add('jcarouselytlist', $settings);
+  brookfield_social_add_js_css();
+}
+
+function template_preprocess_brookfield_social_theme_dealcatcher(&$variables) {
+
+  $settings = array(
+    'scroll' => 1,
+    'wrap' => 'circular',
+    'auto' => 10,
+  );
+  jcarousel_add('jcarouseldc', $settings);
+  drupal_add_css(drupal_get_path('module', 'brookfield_social') . '/brookfield_social.css');
+}
+
+function brookfield_social_add_js_css() {
+
+  drupal_add_js(drupal_get_path('module', 'brookfield_social') . '/brookfield_social.js');
+  drupal_add_css(drupal_get_path('module', 'brookfield_social') . '/brookfield_social.css');
+}

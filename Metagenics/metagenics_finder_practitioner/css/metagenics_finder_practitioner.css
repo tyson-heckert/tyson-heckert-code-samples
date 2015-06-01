@@ -1,0 +1,604 @@
+/*** find a practitioner page specific css ***/
+
+#edit-field-practitioner-reference-field-credentials-wrapper {
+  display:none;
+}
+#edit-field-practitioner-reference-field-health-condition-focus-wrapper {
+  display:none;
+}
+
+#edit-field-location-geolocation-latlon-location-slider{
+  display:none;
+}
+.form-item-field-location-geolocation-latlon-location-radius{
+  display:none;
+}
+
+#views-exposed-form-find-a-practitioner-initial-results-page input[type="text"],
+#views-exposed-form-find-a-practitioner-initial-results-page select {
+  background-color: #f0f0f0;
+  border: 0;
+  border-top: 2px solid #cdcdcd;
+  padding: 4px 0 4px 5px;
+  margin:0;
+}
+
+#views-exposed-form-find-a-practitioner-initial-results-page input[type="text"]:focus,
+#views-exposed-form-find-a-practitioner-initial-results-page select:focus {
+  border-top: 2px solid #0075A9;
+}
+
+
+#views-exposed-form-find-a-practitioner-initial-results-page .form-item-field-practitioner-reference-roles-1 label,
+#views-exposed-form-find-a-practitioner-initial-results-page .form-item-field-practitioner-reference-field-online-store-available label{
+  float:left;
+  width:47%;
+  font-size:14px;
+  margin-bottom:5px;
+}
+
+#edit-field-practitioner-reference-roles-1 .form-item-field-practitioner-reference-roles-1 label,
+.form-item-field-practitioner-reference-field-online-store-available .form-radios label{
+  float:none !important;
+  margin:0 !important;
+  width:auto !important;
+  color:#7D7D7D !important;
+}
+
+#edit-field-practitioner-reference-roles-1 .form-type-radio,
+.form-item-field-practitioner-reference-field-online-store-available .form-type-radio{
+  width:auto !important;
+  margin:0 !important;
+}
+
+#views-exposed-form-find-a-practitioner-initial-results-page .views-widget div:focus {
+  color:#0075A9 !important;
+}
+
+#views-exposed-form-find-a-practitioner-initial-results-page .views-exposed-widget.views-submit-button {
+  padding:10px;
+  border:1px solid #BEBFB9;
+  margin-top:20px;
+  display:inherit!important
+}
+
+#edit-field-location-geolocation-latlon-location-address{
+  width:100%;
+  padding:5px 0 5px 5px !important;
+}
+#edit-location{
+  margin-bottom:10px !important;
+}
+
+#edit-location .fieldset-legend, .form-item-search-radius label{
+  font-weight:bold;
+  font-size:14px;
+}
+
+#edit-select-list-credentials a, #edit-select-list-specialty a{
+  font-weight: normal !important;
+}
+
+#edit-select-list-credentials, #edit-select-list-specialty{
+  float:left;
+  margin-top:5px;
+}
+
+#edit-pen{
+  float:left;
+  width:100%;
+}
+#edit-pen--2{
+  float:left;
+  width:100%;
+  margin-top:5px;
+}
+
+.form-item-search-city,
+#edit-field-location-geolocation-latlon-select-list {
+  float:left;
+  width:150px !important;
+}
+.form-item-search-city input {
+  width:140px;
+}
+
+.item-more-text {
+  float:left;
+}
+
+.item-more-text a{
+  text-decoration: none !important;
+  font-weight:normal !important;
+}
+
+.form-item-search-state {
+  float:left;
+  width:15%;
+}
+
+.form-item-search-zip {
+  float:left;
+  width:90px !important;
+}
+
+.form-item-search-zip input {
+  width:80px;
+}
+
+.form-item-search-radius {
+  float:right;
+  width:15%;
+  margin-top:-17px !important;
+}
+
+#edit-select-list {
+  float:left;
+  width:100%;
+  margin:5px 0;
+}
+
+#edit-credentials-holding {
+  float:left;
+  margin:10px 0 0 0;
+  width:94%;
+  border:1px solid #BEBFB9;
+  padding:5px 10px 10px 10px;
+}
+
+
+.item-holding-pen {
+  margin:10px 0 0 0;
+  font-weight:normal;
+  display:inline;
+}
+
+#edit-specialty-holding {
+  margin:10px 0 0 0;
+  float:left;
+  width:94%;
+   border:1px solid #BEBFB9;
+ padding:0 10px 10px 10px;
+}
+
+.specialty-holding-pen {
+  margin:10px 0 0 0;
+  font-weight:normal;
+  display:inline;
+}
+
+.form-item-field-practitioner-reference-roles-1{
+
+  float:left;
+}
+
+.form-item-field-practitioner-reference-field-online-store-available{
+  float:left;
+  width:100%;
+}
+
+.form-item-field-practitioner-reference-roles-1.form-type-radios {
+  margin:10px 0 0 0 !important;
+  width:100%;
+}
+
+.views-widget-filter-field_location_geolocation_latlon {
+  width:50% !important;
+  float:right !important;
+}
+
+.views-exposed-widget.views-submit-button {
+  float:left;
+  width:45%;
+}
+
+#edit-credentials-holding, #edit-specialty-holding {
+  font-weight:bold;
+  font-size:14px;
+}
+
+.item-link {
+  font-weight:normal;
+  font-style:italic;
+  float:left;
+  padding-right:10px;
+}
+
+.item-link:hover {
+  color:#0075A9;
+}
+
+.item-remover {
+  float:right;
+  padding:5px 20px 0 0;
+  text-indent:-9999px;
+  background: url('../images/credential-cancel.gif') center top no-repeat;
+  cursor:pointer;
+}
+
+.pen-title {
+  margin-right:5px;
+  margin-bottom:5px;
+  float:left;
+}
+
+.form-item-field-practitioner-reference-roles-1 input,
+.form-item-field-practitioner-reference-field-online-store-available input {
+  display:inline;
+}
+
+#edit-field-practitioner-reference-roles-1 .form-type-radio {
+  float:left;
+  margin-right:10px;
+}
+
+
+#edit-field-practitioner-reference-roles-1 {
+  float:left;
+  width:50%;
+}
+
+#edit-submit-find-a-practitioner {
+  display:none;
+}
+
+.form-item-field-location-geolocation-latlon-location-address {
+   left: 25px;
+    position: absolute;
+    top: 241px;
+    width:35%;
+}
+
+@-moz-document url-prefix() {
+.form-item-field-location-geolocation-latlon-location-address {
+   left: 25px;
+    position: absolute;
+    top: 245px;
+    width:35%;
+}
+}
+
+.item-hidden {
+  display:none;
+}
+
+.search-text-placeholder{
+  height:35px;
+  width:100%;
+}
+
+/**** rating specific ******/
+.practitioner-rating-gold {
+  float:left;
+  width:25px;
+  min-height:60px;
+  background: url('../images/gold-star.png') center top no-repeat;
+  margin-right:5px;
+}
+.practitioner-rating-silver {
+  float:left;
+  width:25px;
+  height:30px;
+  background: url('../images/silver-star.png') center top no-repeat;
+  margin-right:5px;
+}
+.practitioner-rating-bronze {
+  float:left;
+  width:25px;
+  height:30px;
+  background: url('../images/bronze-star.png') center top no-repeat;
+  margin-right:5px;
+}
+
+.first-line-therapy-badge {
+  background: url('../images/flt-badge.png') left 2px no-repeat;
+  padding-left:20px;
+  color:#002a54;
+}
+
+
+.fap-contact-pop-wrapper, .fap-contact-info-wrapper {
+  display:none;
+}
+
+.fap-phone {
+  display:inline;
+}
+
+.fap-email {
+  display:inline;
+}
+
+.fap-contact-pop-wrapper {
+  float: left;
+  height: 70px;
+  left: -92px;
+  position: relative;
+  width: 150px;
+}
+
+.fap-contact-pop {
+  border: 1px solid #CCCCCC;
+  border-radius: 5px 5px 5px 5px;
+  float: left;
+  padding: 5px;
+  position: absolute;
+  width: 220px;
+}
+
+.fap-contact-pop-close-wrapper {
+  background: url("../images/cancel.png") no-repeat scroll center top transparent;
+  cursor: pointer;
+  float: right;
+  left: 200px;
+  padding: 5px 20px 0 0;
+  position: absolute;
+  text-indent: -9999px;
+  top: 10px;
+}
+
+.views-field-field-practitioner-reference-field-credentials {
+  width:200px;
+}
+
+.views-field-field-practitioner-reference-field-online-store-available {
+  width:155px;
+}
+
+.views-widget-filter-field_practitioner_reference_roles_1{
+  display:none;
+}
+
+.view-find-a-practitioner .views-field-php-1{
+  width:100px;
+}
+
+.fap-shop-now-wrapper, .fap-contact-wrapper, .fap-profile-wrapper {
+  float:left;
+  width:50px;
+}
+
+.fap-shop-now-wrapper-empty {
+  height:33px;
+  width:50px;
+  display:block;
+  float:left;
+}
+
+.fap-shop-now-wrapper a {
+  height:33px;
+  width:33px;
+  background: url('/sites/all/modules/custom/metagenics_finder_practitioner/images/cart-sprites.png') left top no-repeat;
+  display:block;
+  padding-top:33px;
+  text-decoration: none !important;
+  color:#909f20;
+  line-height:14px;
+  text-align: center;
+  font-weight:bold;
+  margin:0 auto;
+}
+
+.fap-contact-wrapper a {
+  height:33px;
+  width:50px;
+  background: url('/sites/all/modules/custom/metagenics_finder_practitioner/images/cart-sprites.png') -36px top no-repeat;
+  display:block;
+  padding-top:33px;
+  text-decoration: none !important;
+  line-height:14px;
+  text-align: center;
+  font-weight:bold;
+  margin:0 auto;
+}
+
+.fap-profile-wrapper a {
+  height:33px;
+  width:33px;
+  background: url('/sites/all/modules/custom/metagenics_finder_practitioner/images/cart-sprites.png') -88px top no-repeat;
+  display:block;
+  padding-top:33px;
+  text-decoration: none !important;
+  line-height:14px;
+  text-align: center;
+  font-weight:bold;
+  margin:0 auto;
+}
+
+.view-display-id-initial_results_page table th {
+  border:none !important;
+}
+
+#edit-submit-button {
+  float:left;
+  margin-top:20px;
+}
+
+#edit-submit-button a {
+     background-color: #0075A9;
+    border-radius: 5px 5px 5px 5px;
+    border-style: solid;
+    bottom: 0;
+    color: #FFFFFF;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: normal;
+    margin-bottom: 0;
+    margin-right: 0.6em;
+    padding: 5px 18px !important;
+    position: inherit;
+    text-align: center;
+    text-decoration: none !important;
+}
+
+.form-item-field-location-geolocation-latlon-location-radius {
+  float:left;
+
+  margin-right:15px;
+}
+
+.form-item-field-location-geolocation-latlon-location-radius span {
+  color:#0075A9;
+  position:relative;
+  top:2px;
+}
+
+.form-item-field-location-geolocation-latlon-location-radius label {
+  display:inline;
+  padding:0 !important;
+}
+
+#edit-field-location-geolocation-latlon-location-radius {
+  background: none !important;
+  border:none !important;
+  width:15px;
+  color:#0075A9;
+  padding:7px 0 0 0 !important;
+  position:relative;
+  top:2px;
+}
+
+#edit-field-location-geolocation-latlon-location-slider {
+  float: left;
+  margin: 10px 0;
+  width: 325px;
+}
+.form-checkboxes .form-item, .form-radios .form-item {
+  margin-top: 2px;
+  margin-bottom: 2px;
+  float: left;
+  width: 290px;
+}
+div.ctools-modal-content .modal-header {
+   background-color: transparent !important;
+   float: left;
+}
+div.modal-forms-modal-content .form-item label {
+  margin-top: -25px;
+   margin-bottom: 10px;
+}
+.page-find-a-practitioner #modalContent {
+  position: fixed !important;
+  top: 10% !important;
+}
+.finder-practitioner #modal-content {
+  text-align: left;
+  width: 90%;
+}
+
+#edit-item-list{
+  overflow: auto;
+  height: 385px;
+}
+
+#modal-content{
+  height:440px !important;
+  padding-top:40px;
+}
+
+.finder-practitioner .form-item.form-type-checkboxes.form-item-item-list {
+  float: left;
+  margin-top: -10px;
+}
+#metagenics-finder-practitioner-criteria-form #list-specialty.criteria-list span {
+  float: right;
+  text-align: left;
+  width: 90.5%;
+}
+#metagenics-finder-practitioner-criteria-form #list-credentials.criteria-list span {
+  float: right;
+  text-align: left;
+  width: 89%;
+}
+.finder-practitioner #modalContent {
+  position: fixed !important;
+  top: 10% !important;
+}
+.popups-container .modal-scroll {
+  float: left;
+}
+#list-credentials.criteria-list #selects span {
+  width: auto !important;
+  float: left !important;
+  padding-right: 35px;
+  position: relative;
+  bottom: 16px;
+  left: 240px;
+}
+#list-specialty.criteria-list #selects span {
+  width: auto !important;
+  float: left !important;
+  padding-right: 35px;
+  position: relative;
+  bottom: 16px;
+  left: 220px;
+}
+.page-find-a-practitioner div.ctools-modal-content .modal-content .modal-throbber-wrapper {
+  text-align: center;
+  width: 100% !important!
+}
+
+.fap-item-close-save{
+  position: absolute;
+top: 93%;
+left: 87%;
+}
+
+.fap-item-close-nosave{
+  position: absolute;
+ left: 93%;
+  bottom: 1%;
+}
+
+.page-find-a-practitioner .popups-close.close{
+  display:none;
+}
+
+.fap-item-close-save{
+background-color: #0075a9;
+border-radius: 5px;
+-moz-border-radius: 5px;
+-webkit-border-radius: 5px;
+border-style: solid;
+color: #FFFFFF;
+cursor: pointer;
+font-size: 13px;
+font-weight: normal;
+margin-bottom: 0;
+margin-right: 0.6em;
+padding: 8px 25px !important;
+text-align: center;
+text-decoration: none !important;
+}
+
+#metagenics-finder-practitioner-criteria-form .popups-close {
+
+  top: 10px;
+
+}
+
+.modal-header{
+  padding:0 !important;
+}
+
+.view-display-id-initial_results_page .views-field-field-practitioner-reference-field-last-name{
+  width:150px;
+}
+.view-display-id-initial_results_page .views-field-nothing{
+  max-width:200px;
+  min-width: 165px;
+}
+
+.view-find-a-practitioner tr{
+  border-top:1px solid #ccc;
+}
+.fap-empty-text{background-color: #fee3c6;
+padding: 10px 0;
+color: #d74f27;
+border: 1px solid #ffac52;
+float: left;
+width: 908px;
+margin: 10px 0;
+text-align: center;}
+
+.views-widget-filter-field_practitioner_reference_field_online_store_available{display:none;}

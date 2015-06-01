@@ -1,0 +1,1054 @@
+<?php
+
+/**
+ * @file
+ * Module file for metagenics_commerce_recurring module.
+ */
+
+define('ARO_OFF', 0);
+define('ARO_QUEUE_ONLY', 1);
+define('ARO_QUEUE_AND_PROCESS', 2);
+
+module_load_include('inc', 'metagenics_commerce_recurring', 'includes/metagenics_commerce_recurring.aro_editor');
+
+/**
+ * Implements hook_menu().
+ */
+function metagenics_commerce_recurring_menu() {
+  $items = array();
+
+  $items['admin/config/metagenics/recurring_order_settings'] = array(
+    'title' => 'Recurring order settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('metagenics_commerce_recurring_admin_settings_form'),
+    'access arguments' => array('administer metagenics settings'),
+    'file' => 'includes/metagenics_commerce_recurring.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['metagenics-commerce-recurring-delete-order/%node/%ctools_js'] = array(
+    'title' => 'Delete Recurring Order',
+    'page callback' => 'metagenics_commerce_recurring_delete_order_modal',
+    'page arguments' => array(1, 2),
+    'access callback' => 'metagenics_commerce_recurring_access',
+    'access arguments' => array(1),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['account/%user/orders/recurring-orders/%node/edit'] = array(
+    'title' => 'Recurring Order',
+    'description' => 'Recurring Order Page',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('recurring_order_template_node_form', 4, 'patient_recurring_order_form', 1),
+    'access callback' => array('metagenics_commerce_recurring_access'),
+    'access arguments' => array(4),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'node.pages.inc',
+    'file path' => drupal_get_path('module', 'node'),
+  );
+
+  $items['metagenics_commerce_recurring/ajax/product'] = array(
+    'page callback' => 'metagenics_commerce_recurring_ajax_autocomplete_product',
+    'theme callback' => 'ajax_base_page_theme',
+    'access callback' => TRUE,
+    // 'access arguments' => array('access user profiles'),
+    'type' => MENU_CALLBACK,
+    'file' => 'includes/metagenics_commerce_recurring.aro_editor.inc',
+  );
+
+  $items['admin/commerce/orders/aro-queue'] = array(
+    'title' => 'Recurring order queue',
+    'description' => "List of orders that are queue'd to go out.",
+    'page arguments' => array('metagenics_commerce_recurring_aro_queue_form'),
+    'page callback' => 'drupal_get_form',
+    'access arguments' => array('administer metagenics settings'),
+    'file' => 'includes/metagenics_commerce_recurring.admin.inc',
+  );
+
+  $items['admin/metagenics/aro-action-links/%/%'] = array(
+    'description' => "Use this to link users from aro queue table by only loading info when needed.",
+    'page arguments' => array(3,4),
+    'page callback' => '_metagenics_commerce_recurring_action_links',
+    'access callback' => TRUE,
+    'file' => 'includes/metagenics_commerce_recurring.admin.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_cron_queue_info().
+ */
+function metagenics_commerce_recurring_cron_queue_info() {
+  $queues['metagenics_commerce_recurring_queueapi_process_orders'] = array(
+    'worker callback' => 'metagenics_commerce_recurring_queue_process_worker_init',
+    'time' => 180,
+  );
+  return $queues;
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function metagenics_commerce_recurring_views_api() {
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'metagenics_commerce_recurring') . '/views',
+  );
+}
+
+function metagenics_commerce_recurring_views_pre_build(&$view) {
+  if ($view->name === 'user_recurring_order_page') {
+    drupal_add_css(drupal_get_path('module', 'metagenics_commerce_recurring') . '/css/metagenics_commerce_recurring.css');
+  }
+}
+
+/**
+ * Access callback.
+ */
+function metagenics_commerce_recurring_access($node) {
+  global $user;
+  if ($node->uid === $user->uid || user_access('access any recurring order template')) {
+    return TRUE;
+  }
+
+  return FALSE;
+}
+/**
+ * Impelements hook_permission().
+ */
+function metagenics_commerce_recurring_permission(){
+  return array(
+    'access any recurring order template' => array(
+      'title' => t('Access any recurring order template'),
+    ),
+  );
+}
+
+/**
+ * Modal page callback to delete recurring order.
+ */
+function metagenics_commerce_recurring_delete_order_modal($node, $js) {
+  if (!$js) {
+    return drupal_get_form('metagenics_commerce_recurring_delete_order_form');
+  }
+
+  ctools_include('ajax');
+  ctools_include('modal');
+
+  $form_state = array(
+    'title' => t('Delete Recurring Order'),
+    'ajax' => TRUE,
+    'node' => $node,
+  );
+
+  $output = ctools_modal_form_wrapper('metagenics_commerce_recurring_delete_order_form', $form_state);
+
+  if ($form_state['executed']) {
+    $commands = array();
+    $commands[] = ctools_modal_command_dismiss();
+    $commands[] = ctools_ajax_command_reload();
+  }
+  else {
+    $commands = $output;
+  }
+
+  print ajax_render($commands);
+  exit;
+}
+
+/**
+ * Generates the delete recurring order form.
+ */
+function metagenics_commerce_recurring_delete_order_form($form, &$form_state) {
+  $form = array();
+
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Confirm'),
+    '#prefix' => '<label>' . t('Are you sure you want to delete this recurring order?') . '</label><br />',
+    '#submit' => array('metagenics_commerce_recurring_delete_order_form_submit'),
+  );
+
+  return $form;
+}
+
+/**
+ * Submit callback to delete a recurring order.
+ */
+function metagenics_commerce_recurring_delete_order_form_submit($form, &$form_state) {
+  //entity_delete('node', $form_state['node']->nid);
+  $template = node_load($form_state['node']->nid);
+  $template->field_order_status[LANGUAGE_NONE][0]['value'] = 2;
+  $template->field_aro_deleted[LANGUAGE_NONE][0]['value'] = 1;
+  $template->field_aro_deleted_date[LANGUAGE_NONE][0]['value'] = date("Y-m-d H:i:s", time());
+  node_save($template);
+}
+
+
+/**
+ * Helper function to calculate the next ship date of an ARO.
+ *
+ * @param string $last_date
+ *   The last date the order was shipped.
+ * @param int $freq
+ *   The frequency of the recurring order. Acceptable values are 1, 2, or 3.
+ * @param string $type
+ *   Optional. The type of date format to return. E.g. 'short', 'medium',
+ *   'long', 'custom'. Defaults to UNIX timestamp.
+ * @param string $format
+ *   Optional. If $type == 'custom', $format is the php format to return the
+ *   date value in.
+ *
+ * @return string
+ *   Returns the formatted next shipping date of an ARO.
+ */
+function metagenics_commerce_recurring_calculate_next_ship_date($last_date, $freq, $type = 'custom', $format = 'Y-m-d 00:00:00') {
+  if (!is_numeric($last_date)) {
+    $last_date = strtotime($last_date);
+  }
+
+  $next_date = strtotime($freq . ' months', $last_date);
+
+  if (!empty($type)) {
+    $next_date = format_date($next_date, $type, $format);
+  }
+
+  return $next_date;
+}
+
+/**
+ * Implements hook_action_info().
+ */
+function metagenics_commerce_recurring_action_info() {
+  return array(
+    'metagenics_commerce_recurring_calculate_next_ship_date_vbo' => array(
+      'type' => 'node',
+      'label' => t('Update next ship date of an ARO'),
+      'behavior' => array('changes_property'),
+      'configurable' => FALSE,
+      'vbo_configurable' => FALSE,
+      'triggers' => array('any'),
+    ),
+  );
+}
+
+/**
+ * VBO callback to calculate next ship date.
+ */
+function metagenics_commerce_recurring_calculate_next_ship_date_vbo(&$node, $context) {
+  if ($node->type !== 'recurring_order_template') {
+    drupal_set_message(t('Node must be of type Recurring Order Template. Node !nid not updated.', array('!nid' => $node->nid)), 'warning');
+    return FALSE;
+  }
+  elseif (empty($node->field_last_order_date) || empty($node->field_frequency)) {
+    drupal_set_message(t('Last order date and Frequency dates are required. Node !nid not updated.', array('!nid' => $node->nid)), 'warning');
+    return FALSE;
+  }
+  else {
+    $last_date = $node->field_last_order_date[LANGUAGE_NONE][0]['value'];
+    $freq = $node->field_frequency[LANGUAGE_NONE][0]['value'];
+
+    $next_date = metagenics_commerce_recurring_calculate_next_ship_date($last_date, $freq);
+    $node->field_aro_next_ship_date[LANGUAGE_NONE][0]['value'] = $next_date;
+  }
+}
+
+
+/**
+ * Implements hook_cron().
+ */
+function metagenics_commerce_recurring_cron() {
+
+  // @TODO add some type of failsafe in case elysia cron isn't on.
+
+}
+
+/**
+ * Custom hook_cronapi call back to add orders to the queue.
+ */
+function metagenics_commerce_recurring_add_order_queue_cron() {
+
+  $aro_process_mode = variable_get('metagenics_commerce_recurring_orders_enabled', ARO_OFF);
+  if ($aro_process_mode == ARO_OFF) {
+    return;
+  }
+
+  // If recurring order variable is set to ARO_QUEUE_ONLY , or full mode,
+  // with ARO_QUEUE_AND_PROCESS, then put these orders into our custom
+  // queue table.
+  if ($aro_process_mode == ARO_QUEUE_ONLY || ARO_QUEUE_AND_PROCESS) {
+    // Go get any daily orders.
+    $daily_templates = metagenics_commerce_recurring_template_process_list();
+
+    // Add the order templates to our custom table. If they are already in there
+    // we have try/catches to prevent errors.
+    if (!empty($daily_templates)) {
+      foreach ($daily_templates as $template) {
+        $success = metagenics_commerce_recurring_queue_add_orders($template);
+      }
+    }
+  }
+
+  // If set to ARO_QUEUE_AND_PROCESS, then we will add these to the drupal queue
+  // for processing.
+  if ($aro_process_mode == ARO_QUEUE_AND_PROCESS) {
+    // Grab the template ids from the queue.
+    $now = time();
+    $sql = "SELECT * FROM metagenics_commerce_recurring_process_queue WHERE processing_status = 'Pending' AND pending_order_date <= :now";
+    $results = db_query($sql, array(':now' => $now));
+
+    // Update the status of these orders. They will be set to complete or failed
+    // when they are processed.
+
+    // The $queue->createItem() adds them to the cron queue which will use the
+    // worker callback of metagenics_commerce_recurring_create_order to acutally
+    // create the orders. The status will be set in there.
+    if ($results) {
+      // Grab the ARO queue.
+      $queue = DrupalQueue::get('metagenics_commerce_recurring_queueapi_process_orders');
+      foreach ($results as $result) {
+        $queue->createItem($result);
+        metagenics_commerce_recurring_update_queue_status($result->qid, 'in_process_queue');
+      }
+    }
+  }
+}
+
+
+/**
+ * Return a array of template nids or false if there's none.
+ *
+ * @param string $ship_date
+ *   Ship date in mm/dd/yyy format.
+ *
+ * @param string $return_type
+ *   If you want an array of objects with fields or just an array of string ID's.
+ *
+ * @param array $template_id_list
+ *   If you send an array of template ID's here this function will return
+ *   objects with only those items and ignore ship date.
+ *
+ * @return mixed
+ *   An array of template nids or FALSE
+ */
+function metagenics_commerce_recurring_template_process_list($ship_date = NULL, $return_type = 'with fields', $template_id_list = array()) {
+
+  // Ship date has to be something, so default to today if not in params
+  if (empty($ship_date)) {
+    $ship_date = date('Y-m-d') . ' 00:00:00';
+  }
+
+  // Ensure the date submited to this function is in the correct format.
+  else {
+    $ship_date = date('Y-m-d', strtotime($ship_date)) . ' 00:00:00';
+  }
+
+  $query = new EntityFieldQuery();
+
+  // @TODO Figure out how we are going to manage grabbing templates that have a
+  // ship date of today or before today without just adding them all. We are going
+  // to need ot be careful when we first push this up because there are a ton of
+  // orders that missed their shipment.
+  $query->entityCondition('entity_type', 'node')
+    ->entityCondition('bundle', 'recurring_order_template')
+    ->fieldCondition('field_order_status', 'value', '1', '=');
+
+  // Default condition, search for templates with next ship date.
+  if (empty($template_id_list)) {
+    $query->fieldCondition('field_aro_next_ship_date', 'value', $ship_date, '=');
+  }
+  // If we've passed in a template ID list we don't need to search by date,
+  // just pick up all orders in the list.
+  else {
+    $query->entityCondition('entity_id', $template_id_list, 'IN');
+  }
+
+  $result = $query->execute();
+
+  if (isset($result['node'])) {
+
+    if ($return_type == 'with fields') {
+      // Return an array of aro tempalate objects.
+      // We need to get some extra fiels without a node load on these.
+      $templates = $result['node'];
+      // At first we need to get field's id.
+      // Get all fields attached to a given node type.
+      $fields = field_info_instances('node', 'recurring_order_template');
+
+      // Get numeric system id of neighborhood ref field.
+      $next_ship_date_id = $fields['field_aro_next_ship_date']['field_id'];
+      $frequency_id = $fields['field_frequency']['field_id'];
+
+      // Attach a field of selected id only to get value for it.
+      field_attach_load('node', $templates, FIELD_LOAD_CURRENT, array('field_id' => $next_ship_date_id));
+      field_attach_load('node', $templates, FIELD_LOAD_CURRENT, array('field_id' => $frequency_id));
+
+      return $templates;
+
+    }
+    elseif ($return_type == 'simple') {
+      // Just return an array of nids.
+      $template_nids = array_keys($result['node']);
+      return $template_nids;
+    }
+
+  }
+
+  return FALSE;
+}
+
+/**
+ * Add ARO template data to metagenics_commerce_recurring_process_queue table.
+ *
+ * @param object $template
+ *   The ARO template node
+ * @param string $ship_date
+ *   The ship date srting in mm/dd/yyyy format
+ *
+ * @return db_insert
+ *   Inserts records into the metagenics_commerce_recurring_process_queue table.
+ */
+function metagenics_commerce_recurring_queue_add_orders($template, $ship_date = NULL) {
+
+  if (empty($ship_date)) {
+    $ship_date = date('Y-m-d');
+  }
+
+  $frequency = $template->field_frequency['und'][0]['value'];
+  $template_next_ship_date = strtotime($template->field_aro_next_ship_date['und'][0]['value']);
+  $pending_order_date = strtotime($ship_date);
+
+  $record = array(
+    'template_nid' => (int) $template->nid,
+    'processing_status' => 'Pending',
+    'order_date' => 0,
+    'pending_order_date' => $pending_order_date,
+    'template_next_order_date' => $template_next_ship_date,
+    'frequency' => $frequency,
+  );
+  //@ todo - we should add a pending_ship_date field that we use to see when this
+  // will go out.
+  //
+  // We should also use the order_date field as the actual ship date to confim
+  // it when out.
+  try {
+    $success = db_insert('metagenics_commerce_recurring_process_queue')
+    ->fields($record)
+    ->execute();
+
+    drupal_set_message(t("ARO Template ID @id was added to the queue", array('@id' => $record['template_nid'])));
+    return $success;
+  }
+  catch (Exception $e) {
+
+    drupal_set_message("There was an error with adding the order to the queue. Please check that all of the correct fields are included with the ARO template");
+  }
+
+}
+
+/**
+ * Implements hook_cronapi().
+ *
+ *  Implement our own cron hook and callback function.
+ *
+ *
+ * Fire off any items in the cron queue rather than let drupal do it this lets
+ * us clean the queue manually any time we want.
+ */
+function metagenics_commerce_recurring_cronapi($op, $job = NULL) {
+
+  $items = array();
+
+  $items['metagenics_commerce_recurring_queue_add_orders_cron'] = array(
+    'description' => 'Add ARO templates in the Metagenics custom table queue.',
+    'callback' => 'metagenics_commerce_recurring_add_order_queue_cron',
+    'rule' => '0 */2 * * *',
+  );
+
+  $items['metagenics_commerce_recurring_queue_report'] = array(
+    'description' => 'Send an email to admins with the queue report for the day.',
+    'callback' => 'metagenics_commerce_recurring_queue_report',
+    'rule' => '0 */2 * * *',
+  );
+
+  return $items;
+}
+
+/**
+ * Callback for the cronapi task metagenics_commerce_recurring_queue_report.
+ *
+ * @return null
+ *   Return null if email sending is disabled.
+ */
+function metagenics_commerce_recurring_queue_report() {
+
+  $disabled = variable_get('metagenics_commerce_recurring_admin_email_disable', NULL);
+  if (!empty($disabled)) {
+    return;
+  }
+
+  // Get admin emails.
+  $to = variable_get('metagenics_commerce_recurring_admin_email_to', NULL);
+  if (!empty($to)) {
+
+    // Rebuild email string in case of weird formatting or space issues.
+    $to_parts = explode(',', $to);
+    foreach ($to as &$part) {
+      $part = trim($part);
+    }
+    $to = implode(', ', $to_parts);
+
+    $language = language_default();
+
+    // Send mail.
+    drupal_mail('metagenics_commerce_recurring', 'metagenics_commerce_recurring_queue_report', $to, $language);
+  }
+}
+
+/**
+ * Implments hook_mail.
+ */
+function metagenics_commerce_recurring_mail($key, &$message, $params) {
+  switch ($key) {
+    case 'metagenics_commerce_recurring_queue_report':
+      $message['subject'] = variable_get('metagenics_commerce_recurring_admin_email_subject', NULL);
+      $message['body'] = variable_get('metagenics_commerce_recurring_admin_email_body', NULL);
+      break;
+  }
+}
+
+/**
+ * Init function for drupal queue processing.
+ *
+ * Does not continue to create an order if recurring orders aren't enabled.
+ *
+ * @param object $template_data
+ *         The template data to process. Gets passed to the actual worker function
+ *
+ * @return null
+ */
+function metagenics_commerce_recurring_queue_process_worker_init($template_data){
+
+  // Check and see if recurring orders are turned on
+  $recurring_order_enabled = variable_get('metagenics_commerce_recurring_orders_enabled', FALSE);
+  if (empty($recurring_order_enabled)) {
+    return;
+  }
+
+  // Find the queue status of this order
+  // do this in case the order is stuck in the queue, we don't want it to
+  // create a duplicate order for some reason.
+  $queue_status = metagenics_commerce_recurring_get_queue_status($template_data->qid);
+
+  // Do not process this item unless the queue status is pending, anything else
+  // and there is probably already an order for it and we can handle it manually
+  // later.
+  if($queue_status != 'In Process Queue'){
+    return;
+  }
+
+  metagenics_commerce_recurring_queue_process_worker($template_data);
+}
+
+/**
+ * Creates an order from an ARO template.
+ *
+ *   This can be used in cron batch api or straight up batch api. This will
+ *   update the status in the custom meta aro queue table.
+ *
+ * @param object $template_data
+ *   $data->template_nid = the nid of the ARO template.
+ *   $data->qid = the qid of the order to process.
+ */
+function metagenics_commerce_recurring_queue_process_worker($template_data) {
+
+  // Update status to processing so we know the item is in queue.
+  metagenics_commerce_recurring_update_queue_status($template_data->qid, 'processing');
+
+  // Load the template.
+  $aro_template = node_load($template_data->template_nid);
+
+  // Update queue and set this item to processing.
+  // $aro_order is an array if this fails, the order object if it succeeds.
+  try {
+    if ($aro_order = metagenics_commerce_recurring_create_aro_order($aro_template, $template_data->qid)) {
+      // An array means there was an error and this is a fail of some kind.
+      if (is_array($aro_order)) {
+        $data = $aro_order;
+        metagenics_commerce_recurring_update_queue_status($template_data->qid, 'failed', $data);
+
+        $log_data['message'] = 'An order failed to be created for template ' . $template_data->template_nid . ' in ' . __FUNCTION__;
+        $log_data['error'] = $data;
+        $message = t('ARO order failed for an unknown reason.');
+        $log_key = 'aro_order_error';
+        metagenics_logging_log_add_record($log_key, $message, $log_data);
+      }
+      // An object means this is a full order object that went through but we
+      // check for missing data still.
+      elseif (!empty($aro_order->order_id) && !empty($aro_order->field_meta_finesse_queue_id)) {
+        metagenics_commerce_recurring_update_queue_status($template_data->qid, 'completed', $aro_order);
+      }
+      // If something is missing.
+      else {
+        $data['order'] = $aro_order;
+        $data['errors'][] = array('No order number or Finesse Queue ID');
+        metagenics_commerce_recurring_update_queue_status($template_data->qid, 'failed', $data);
+
+        $log_data['message'] = 'No order number or Finesse Queue ID ' . $template_data->template_nid . ' in ' . __FUNCTION__;
+        $log_data['error'] = $data;
+        $message = t('ARO order failed: No order number or Finesse Queue ID.');
+        $log_key = 'aro_order_error';
+        metagenics_logging_log_add_record($log_key, $message, $log_data);
+      }
+    }
+    else {
+      throw new Exception('Create recurring order function returned a null object.');
+    }
+  }
+  catch(Exception $e){
+    $data['errors'][] = array('ARO order failed for an unknown reason');
+    metagenics_commerce_recurring_update_queue_status($template_data->qid, 'failed', $data);
+
+    $log_data['message'] = 'An order failed to be created for template ' . $template_data->template_nid . ' in ' . __FUNCTION__;
+    $log_data['error'] = $e->getMessage();
+    $message = t('ARO order failed for an unknown reason.');
+    $log_key = 'aro_order_error';
+    metagenics_logging_log_add_record($log_key, $message, $log_data);
+  }
+}
+
+/**
+ * Update the ARO template after the order has been proccesed.
+ *
+ * @param object $template_node
+ *   The ARO template Node
+ *
+ * @param object $order
+ *   The order object that this template just generated.
+ */
+function metagenics_commerce_recurring_update_template_data($template_node, $order) {
+
+  $template_node->field_last_order_date['und'][0]['value'] = date('m/d/Y');
+
+  $freq = $template_node->field_frequency['und'][0]['value'];
+
+  // Calculate the next ship date.
+  $next_ship_date = metagenics_commerce_recurring_calculate_next_ship_date($template_node->field_last_order_date['und'][0]['value'], $freq);
+
+  $template_node->field_aro_next_ship_date['und'][0]['value'] = $next_ship_date;
+
+  foreach($template_node->field_aro_gen_orders_reference['und'] as $template_ref){
+    if($template_ref['target_id'] == $order->order_id){
+      node_save($template_node);
+      return;
+    }
+  }
+
+  $template_node->field_aro_gen_orders_reference['und'][]['target_id'] = $order->order_id;
+  node_save($template_node);
+
+}
+
+function metagenics_commerce_recurring_get_queue_status($qid){
+  $query = db_select('metagenics_commerce_recurring_process_queue', 'm');
+  $query->fields('m');
+  $query->condition('qid', $qid, '=');
+  $result = $query->execute();
+
+  foreach ($result as $record) {
+    return $record->processing_status;
+  }
+}
+
+/**
+ * Update queued orders in metagenics_commerce_recurring_process_queue table.
+ *
+ * @param string $qid
+ *   The qid value -- this is the same as nid.
+ * @param string $status
+ *   Will be used as the new status once the record is inserted or updated.
+ * @param array $data
+ *   OPTIONAL - Additional order information to add to the data blob
+ *
+ */
+function metagenics_commerce_recurring_update_queue_status($qid, $status, $data = array()) {
+
+  $table = 'metagenics_commerce_recurring_process_queue';
+
+  switch ($status) {
+
+    case 'pending':
+
+      break;
+
+    case 'in_process_queue':
+
+      db_update($table)
+        ->fields(array('processing_status' => 'In Process Queue'))
+        ->condition('qid', $qid, '=')
+        ->execute();
+
+      break;
+
+    case 'processing':
+
+      $processing = db_update($table)
+        ->fields(array(
+        'processing_status' => 'Processing',
+        ))
+        ->condition('qid', $qid, '=')
+        ->execute();
+
+      break;
+
+    case 'completed':
+      $order = $data;
+
+      $success_data = array(
+        'order_id' => $order->order_id,
+        'customer_id' => $order->uid,
+      );
+
+      $processing = db_update($table)
+        ->fields(array(
+          'processing_status' => 'Completed',
+          'order_date' => time(),
+          'data' => serialize($success_data),
+        ))
+        ->condition('qid', $qid, '=')
+        ->execute();
+
+      break;
+
+    case 'failed':
+
+      $processing = db_update($table)
+        ->fields(array(
+          'processing_status' => 'Failed',
+          'data' => serialize($data),
+        ))
+        ->condition('qid', $qid, '=')
+        ->execute();
+      break;
+
+  }
+}
+
+
+/**
+ * Create a new order based on the users recurring order template data.
+ * @param object $aro_template
+ * @param int $aro_queue_id
+ *
+ * @return mixed
+ *   array: if there is an error, we return an array with the error info.
+ *   object: the order object.
+ */
+function metagenics_commerce_recurring_create_aro_order($aro_template, $aro_queue_id = NULL) {
+
+  $data = array();
+
+  if ($aro_template->uid == '0') {
+    $data['errors'][] = 'There is no patient attached to this ARO template. Could not create order.';
+    return $data;
+  }
+
+  // Create the new order in checkout status.
+  $order = commerce_order_new($aro_template->uid, 'commerce_checkout');
+
+  // Add the flat rate shipping cost to the order.
+  // You need this but it's getting overwritten by rules.
+  $price = array('amount' => 0, 'currency_code' => 'USD', 'data' => '');
+  $line_item = commerce_shipping_service_rate_calculate('0_free_ups_ground', $price, $order->order_id);
+  commerce_shipping_add_shipping_line_item($line_item, $order);
+
+  // Assign the WePay Credit Card ID to the order.
+  $account = user_load($aro_template->uid);
+  // Get the WePay Credit Card Id that is saved with the users' profile.
+  $field_wepay_credit_card_id = $account->field_wepay_credit_card_id['und'][0]['value'];
+  $order->field_wepay_credit_card_id['und'][0]['value'] = $field_wepay_credit_card_id;
+  $order->field_order_type['und'][0]['value'] = 'patient_aro';
+  $order->field_aro_template_reference['und'][0]['target_id'] = $aro_template->nid;
+
+  // Grab the pract uid from the Patient. This will always be correct in case
+  // the user switches practitioners.
+  if (!empty($account->field_assigned_practitioner)) {
+    $pract_uid = $account->field_assigned_practitioner['und'][0]['target_id'];
+  }
+  else {
+    $data['errors'][] = 'There is no assigned practitioner to the the Patient. Could not create order.';
+    return $data;
+  }
+
+  $order->field_order_pract_ref['und'][0]['target_id'] = $pract_uid;
+  $order->field_assigned_practitioner_id['und'][0]['value'] = $pract_uid;
+  // Assign the practitioner WePay token, WePay Account ID, and Finesse ID.
+
+  // Set the billing information.
+  $order->commerce_customer_billing['und'][]['profile_id'] = $aro_template->field_billing_information['und'][0]['profile_id'];
+  // Set the shipping information.
+  $order->commerce_customer_shipping['und'][]['profile_id'] = $aro_template->field_shipping_information['und'][0]['profile_id'];
+
+  // Set the recurring order ID for this order to track how it was generated.
+  $order->field_recurring_order_id['und'][0]['value'] = $aro_template->title . ' ID: ' . $aro_template->nid;
+
+  $field = field_info_field('field_ro_discounts');
+  if (!empty($field)) {
+    foreach ($aro_template->field_ro_discounts[LANGUAGE_NONE] as $discount_id) {
+      $order->data['possible_discounts'][$discount_id['target_id']] = $discount_id['target_id'];
+    }
+  }
+
+  // Add the frequency this order goes out on based on the template's value
+  switch($aro_template->field_frequency[LANGUAGE_NONE][0]['value']){
+    case '1':
+      $order->field_aro_frequency[LANGUAGE_NONE][0]['value'] = '30 Days';
+      break;
+    case '2':
+      $order->field_aro_frequency[LANGUAGE_NONE][0]['value'] = '60 Days';
+      break;
+    case '3':
+      $order->field_aro_frequency[LANGUAGE_NONE][0]['value'] = '90 Days';
+      break;
+  }
+
+  try{
+    // Save the order so its ID is assigned.
+    commerce_order_save($order);
+
+    $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+
+    // Load the products specified in the order template and create a line item
+    // for each one.
+    foreach ($aro_template->field_order_line_item['und'] as $template_line_item) {
+
+      $item = field_collection_item_load($template_line_item['value']);
+
+      $product_id = $item->field_product['und'][0]['product_id'];
+      $quantity = $item->field_product_quantity['und'][0]['value'];
+
+      $product = commerce_product_load($product_id);
+
+      // Create a line item with quantity and this product.
+      $line_item = commerce_product_line_item_new($product, $quantity, $order->order_id, array(), 'product');
+
+      // Invoke rules here, which will add any discounts this line item should
+      // recieve.
+      rules_invoke_event('commerce_product_calculate_sell_price', $line_item);
+
+      $line_item_wrapper = entity_metadata_wrapper('commerce_line_item', $line_item);
+
+      // Calculate the taxes for the line item.
+      $tax_rates = commerce_tax_rates();
+
+      // Get the Avatax tax rate settings.
+      $tax_rate = $tax_rates['avatax'];
+
+      // Make sure the line item has a valid price before computing the taxes.
+      if (!is_null($line_item_wrapper->commerce_unit_price->value())) {
+
+        // Calculate the tax amount.
+        $amount = get_avatax_amount($aro_template->uid, $line_item_wrapper);
+
+        $line_item_wrapper->commerce_unit_price->data = commerce_price_component_add(
+          $line_item_wrapper->commerce_unit_price->value(),
+          $tax_rate['price_component'],
+          array(
+            'amount' => commerce_tax_rate_round_amount($tax_rate, $amount),
+            'currency_code' => $line_item_wrapper->commerce_unit_price->currency_code->value(),
+            'data' => array(
+              'tax_rate' => $tax_rate,
+            ),
+          ),
+          TRUE
+        );
+
+      }
+
+      // Save the line item.
+      commerce_line_item_save($line_item);
+
+      // Add the line item to the order using the wrapper.
+      $order_wrapper->commerce_line_items[] = $line_item;
+    }
+
+    // The recurring order creation process is complete.
+    commerce_order_status_update($order, 'pending');
+    // Calling commerce_checkout_complete() will add all of the wepay practitioner token stuff.
+    commerce_checkout_complete($order);
+
+    $data = $order;
+
+    return $data;
+  }
+  catch(Exception $e){
+    if (!empty($order)) {
+      $data['order'] = $order;
+    }
+    $data['errors'][] = $e->getMessage();
+    return $data;
+  }
+}
+
+
+/**
+ * Implements hook_token_info().
+ */
+function metagenics_commerce_recurring_token_info() {
+  $info['tokens']['metagenics']['recurring_order_daily_report_success'] = array(
+    'name' => t('Recurring Order Daily Report: Successful Orders'),
+    'description' => t('The number of successful orders in the last 24 hours.'),
+  );
+
+  $info['tokens']['metagenics']['recurring_order_daily_report_fail'] = array(
+    'name' => t('Recurring Order Daily Report: Failed Orders'),
+    'description' => t('The number of failed orders in the last 24 hours.'),
+  );
+
+  $info['tokens']['metagenics']['recurring_order_queue_link'] = array(
+    'name' => t('Link to the recurring order queue'),
+  );
+
+  $info['tokens']['metagenics']['recurring_order_queue_link_failed'] = array(
+    'name' => t('Link to the recurring order queue filtered to failed orders'),
+  );
+
+  $info['tokens']['metagenics']['yesterday'] = array(
+    'name' => t('Yesterday\'s date'),
+  );
+
+  return $info;
+}
+
+/**
+ * Implements hook_tokens().
+ */
+function metagenics_commerce_recurring_tokens($type, $tokens, array $data = array(), array $options = array()) {
+
+  $replacements = array();
+  $sanitize = !empty($options['sanitize']);
+  if ($type == 'metagenics') {
+    foreach ($tokens as $name => $original) {
+      switch ($name) {
+        case 'recurring_order_daily_report_success':
+          $success_count = metagenics_commerce_recurring_daily_report_success();
+          $replacements[$original] = $success_count;
+          break;
+
+        case 'recurring_order_daily_report_fail':
+          $fail_count = metagenics_commerce_recurring_daily_report_fail();
+          $replacements[$original] = $fail_count;
+          break;
+
+        case 'recurring_order_queue_link':
+          global $base_url;
+          $queue_url = $base_url . '/admin/commerce/orders/aro-queue';
+          $replacements[$original] = l(t('Recurring order queue'), $queue_url);
+          break;
+
+        case 'recurring_order_queue_link_failed':
+          global $base_url;
+          $queue_url = $base_url . '/admin/commerce/orders/aro-queue?status_filter[Failed]=Failed';
+          $replacements[$original] = l(t('Recurring order queue - failed orders'), $queue_url);
+          break;
+
+        case 'yesterday':
+          $replacements[$original] = date('m/d/Y', strtotime('-1 day'));
+          break;
+      }
+    }
+  }
+  return $replacements;
+}
+
+/**
+ * Function to return the number of recurring queue sucesses in the last day.
+ *
+ * @return int
+ *   The number of success items yesterday.
+ */
+function metagenics_commerce_recurring_daily_report_success() {
+
+  $begin_date = strtotime('midnight', strtotime('-1 day'));
+  $end_date = strtotime('tomorrow', $begin_date) - 1;
+
+  // Get successfull order count.
+  $success_count = db_select('metagenics_commerce_recurring_process_queue', 'q')
+    ->fields('q')
+    ->condition('processing_status', 'Completed', '=')
+    ->condition('order_date', $begin_date, '>=')
+    ->condition('order_date', $end_date, '<=')
+    ->execute()
+    ->rowCount();
+
+  return $success_count;
+}
+
+/**
+ * Function to return the number of recurring queue fails in the last day.
+ *
+ * @return int
+ *   The number of fail items yesterday.
+ */
+function metagenics_commerce_recurring_daily_report_fail() {
+
+  $begin_date = strtotime('midnight', strtotime('-1 day'));
+  $end_date = strtotime('tomorrow', $begin_date) - 1;
+
+  // Get failed order count.
+  $fail_count = db_select('metagenics_commerce_recurring_process_queue', 'q')
+    ->fields('q')
+    ->condition('processing_status', 'Failed', '=')
+    ->condition('pending_order_date', $begin_date, '>=')
+    ->condition('pending_order_date', $end_date, '<=')
+    ->execute()
+    ->rowCount();
+
+  return $fail_count;
+}
+
+/**
+ * Implements hook_commerce_order_presave().
+ *
+ *   Update the aro template with new ship date only when we recieve a queue id.
+ */
+function metagenics_commerce_recurring_commerce_order_presave($order) {
+  if ($order->field_order_type[LANGUAGE_NONE][0]['value'] == 'patient_aro') {
+    if (empty($order->original->field_meta_finesse_queue_id) && !empty($order->field_meta_finesse_queue_id)) {
+      if (!empty($order->field_aro_template_reference)) {
+        $template_nid = $order->field_aro_template_reference[LANGUAGE_NONE][0]['target_id'];
+        $template = node_load($template_nid);
+        if ($template !== FALSE) {
+          metagenics_commerce_recurring_update_template_data($template, $order);
+        }
+        else {
+          drupal_set_message(t('Could not update the ARO id @template_id template becuase the attached does not exist.'), array('@template_id' => $template_id), 'error');
+        }
+      }
+      else {
+        $order_link = l(t('@order_number', array('@order_number' => $order->order_number)), 'admin/commerce/orders/' . $order->order_number, array('absolute' => TRUE));
+        $log_data['message'] = t('No template reference exists on the order.');
+        $log_data['order'] = $order;
+        $message = t('ARO template for order !order_link could not be updated.', array('!order_link' => $order_link));
+        $log_key = 'aro_template_update_error';
+        drupal_set_message(t('An attempt to update the ARO template for order # @order_id failed becuase there was no template referenced from the order'), array('@order_id' => $order->order_number));
+        metagenics_logging_log_add_record($log_key, $message, $log_data);
+      }
+    }
+  }
+}
+
+function metagenics_commerce_recurring_node_presave($node){
+  if($node->type != 'recurring_order_template'){
+    return;
+  }
+
+  if($node->field_order_status[LANGUAGE_NONE][0]['value'] == 2 && $node->original->field_order_status[LANGUAGE_NONE][0]['value'] == 1){
+    $node->field_aro_suspended_date[LANGUAGE_NONE][0]['value'] = date("Y-m-d H:i:s", time());
+  }
+  else if($node->field_order_status[LANGUAGE_NONE][0]['value'] == 1 && $node->original->field_order_status[LANGUAGE_NONE][0]['value'] == 2){
+    $node->field_aro_reinstated_date[LANGUAGE_NONE][0]['value'] = date("Y-m-d H:i:s", time());
+  }
+}

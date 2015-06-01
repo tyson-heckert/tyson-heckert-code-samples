@@ -1,0 +1,8 @@
+name = Brookfield Social Plugins
+description = Display Brookfield Facebook and YouTube Feeds.
+version = 7.x-1.0
+core = 7.x
+configure = admin/config/brookfield/brookfield_social
+
+; Dependencies
+dependencies[] = fboauth

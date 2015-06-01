@@ -1,0 +1,6 @@
+name = Brookfield Mobile API
+description = Custom functionality for mobile API.
+version = 7.x-1.0
+core = 7.x
+package = Brookfield
+configure = admin/config/brookfield/mobile-api

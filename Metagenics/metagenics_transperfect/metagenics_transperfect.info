@@ -1,0 +1,7 @@
+name = Metagenics Transperfect
+description = Allows Metagenics to send additional data types for translations.
+core = 7.x
+dependencies[] = locale
+dependencies[] = transperfect
+package = Metagenics
+php = 5.2.5

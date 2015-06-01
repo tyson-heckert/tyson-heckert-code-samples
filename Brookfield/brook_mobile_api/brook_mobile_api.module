@@ -1,0 +1,309 @@
+<?php
+/**
+ * @file
+ * General tasks for brookfield functionality.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function brook_mobile_api_menu() {
+  $items = array();
+
+  $items['admin/config/brookfield/mobile-api'] = array(
+    'title' => 'Mobile API Settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('brook_mobile_api_admin_settings'),
+    'access arguments' => array('access administration pages'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'brook_mobile_api.admin.inc',
+  );
+
+  $items['brook-mobile-api/set-field-update'] = array(
+    'title' => 'Mobile API Settings',
+    'page callback' => 'brook_mobile_api_set_field_update',
+    'access arguments' => array('access administration pages'),
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function brook_mobile_api_form_alter(&$form, &$form_state, $form_id) {
+  if (($form_id == 'field_ui_field_overview_form' && $form['#bundle'] == 'orientation_punchlist') ||
+    ($form_id == 'field_ui_field_edit_form' && $form['#instance']['bundle'] == 'orientation_punchlist')) {
+    $form['#prefix'] = '<div class="messages warning">If you are going to change the text on any field in the punchlist, make sure you update the mobile API settings page with today\'s date or click ' . l(t('Here'), 'brook-mobile-api/set-field-update', array('attributes' => array('class' => 'use-ajax'))) . '</div>';
+  }
+}
+
+/**
+ * Page callback to set the punchlist field update date.
+ */
+function brook_mobile_api_set_field_update() {
+  variable_set('brook_mobile_api_last_punchlist_update', date('Y-m-d'));
+}
+
+/**
+ * Implements hook_services_resources().
+ */
+function brook_mobile_api_services_resources() {
+  $resources = array();
+
+  $resources['punchlists'] = array(
+    'operations' => array(
+      'create' => array(
+        'help' => 'Create a punchlist',
+        'file' => array(
+          'type' => 'inc',
+          'module' => 'brook_mobile_api',
+          'name' => 'resources/brook_mobile_api.create_punchlist',
+        ),
+        'callback' => '_brook_mobile_api_create_punchlist',
+        'access arguments' => array('create orientation_punchlist content'),
+        'args' => array(
+          array(
+            'name' => 'vals',
+            'optional' => FALSE,
+            'source' => 'data',
+            'description' => t('The punchlist node values.'),
+            'type' => 'array',
+          ),
+        ),
+      ),
+    ),
+  );
+
+  $resources['service_requests'] = array(
+    'operations' => array(
+      'create' => array(
+        'help'   => 'Create service requests',
+        'file' => array(
+          'type' => 'inc',
+          'module' => 'brook_mobile_api',
+          'name' => 'resources/brook_mobile_api_v1_service_requests.resource',
+        ),
+        'callback' => '_brook_mobile_api_create_service_requests',
+        'access arguments' => array('create customer_service_request content'),
+        'args' => array(
+          array(
+            'name' => 'service_requests',
+            'optional' => FALSE,
+            'source' => array('data' => 'service_requests'),
+            'description' => t('The service requests array.'),
+            'type' => 'array',
+          ),
+        ),
+      ),
+    ),
+  );
+
+  $resources['custom'] = array(
+    'actions' => array(
+      'password_reset' => array(
+        'help'   => 'Reset a user password',
+        'file' => array(
+          'type' => 'inc',
+          'module' => 'brook_mobile_api',
+          'name' => 'resources/brook_mobile_api.reset_password',
+        ),
+        'callback' => 'brook_mobile_api_resource_password_reset',
+        'args' => array(
+          array(
+            'name' => 'email',
+            'type' => 'string',
+            'description' => 'The email address to reset password for.',
+            'source' => array('data' => 'email'),
+            'optional' => FALSE,
+          ),
+        ),
+        'access arguments' => array('access content'),
+      ),
+    ),
+  );
+
+  $resources['global_data'] = array(
+    'operations' => array(
+      'index' => array(
+        'help'   => 'Retrieve global data from drupal',
+        'file' => array(
+          'type' => 'inc',
+          'module' => 'brook_mobile_api',
+          'name' => 'resources/brook_mobile_api_v1_global_data.resource',
+        ),
+        'callback' => 'brook_mobile_api_sync_global_data',
+        'args' => array(
+          array(
+            'name' => 'context',
+            'type' => 'string',
+            'description' => 'The context of data to get',
+            'source' => array('param' => 'global_data'),
+            'optional' => FALSE,
+          ),
+        ),
+        'access callback' => '_brook_mobile_api_access',
+      ),
+    ),
+  );
+
+  return $resources;
+}
+
+/**
+ * Implements hook_entity_presave().
+ *
+ * We're going to look for any entity that is attached to a lot and fire a
+ * node_save on the lot when that entity is updated. This updates the changed
+ * date on the lot so when we query for updated lots/information from the app
+ * the view will pick it up.
+ *
+ * *****Field collections save their hosts on update anyway, yay.
+ */
+function brook_mobile_api_entity_presave($entity, $type) {
+
+  // User is easy, any lot the user has we load and resave.
+  if ($type == 'user') {
+    if (!empty($entity->field_lot_reference)) {
+      if ($lot = node_load($entity->field_lot_reference[LANGUAGE_NONE][0]['target_id'])) {
+        node_save($lot);
+      }
+    }
+  }
+
+  //Field collections save their hosts on update anyway, yay
+/*
+  // Field collection items we have to query for since there is a reference from the lot
+  // to the field collection item but not vice versa.
+  elseif($type == 'field_collection_item'){
+    if($entity->field_name == 'field_lot_defect_code_groups' && empty($entity->is_new)){
+      $query = new EntityFieldQuery();
+
+      $query->entityCondition('entity_type', 'node')
+        ->entityCondition('bundle', 'lot')
+        ->fieldCondition('field_lot_defect_code_groups', 'value', $entity->item_id, '=');
+
+      $result = $query->execute();
+
+      if (isset($result['node'])) {
+        $lot_nids = array_keys($result['node']);
+        $lots = entity_load('node', $lot_nids);
+        foreach($lots as $lot){
+          node_save($lot);
+        }
+      }
+    }
+  }
+*/
+  // Taxonomy terms we use a variable to keep track of the whole vocab.
+  // Any time any term in a vocab is updated a variable is updated letting us
+  // know the tree has had some changes. The app will take the whole tree if
+  // anything in it has been updated.
+  elseif ($type === 'taxonomy_term') {
+    $valid_vocabs = array(
+      'room',
+      'trade',
+      'item_code',
+    );
+
+    if (in_array($entity->vocabulary_machine_name, $valid_vocabs)) {
+      variable_set('brook_mobile_api_last_update_' . $entity->vocabulary_machine_name, date('Y-m-d'));
+      variable_set('brook_mobile_api_last_update_taxonomy_terms', date('Y-m-d'));
+    }
+  }
+
+  // Vendor objects are tricky and this should probably be done smarter.
+  elseif ($type == 'node') {
+    if ($entity->type == 'vendor') {
+
+      // Query for lots with this vendor ID as a superintendant name.
+      // Almost all lots only ever have superintendant's so we're ok doing this.
+      $query = new EntityFieldQuery();
+
+      $query->entityCondition('entity_type', 'node')
+        ->entityCondition('bundle', 'lot')
+        ->fieldCondition('field_lot_superintendent_name', 'value', $entity->field_vendor_id[LANGUAGE_NONE][0]['value'], '=');
+
+      $result = $query->execute();
+
+      if (isset($result['node'])) {
+        $lot_nids = array_keys($result['node']);
+        $lots = entity_load('node', $lot_nids);
+        foreach ($lots as $lot) {
+          node_save($lot);
+        }
+      }
+
+      // If our query for a super fails this vendor could be a service manager
+      // instead. Run another query to look for this vendor as a service manager
+      // on lots.
+      else {
+        $query = new EntityFieldQuery();
+
+        $query->entityCondition('entity_type', 'node')
+          ->entityCondition('bundle', 'lot')
+          ->fieldCondition('field_lot_service_manager_name', 'value', $entity->field_vendor_id[LANGUAGE_NONE][0]['value'], '=');
+
+        $result = $query->execute();
+
+        if (isset($result['node'])) {
+          $lot_nids = array_keys($result['node']);
+          $lots = entity_load('node', $lot_nids);
+          foreach ($lots as $lot) {
+            node_save($lot);
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_views_post_execute().
+ *
+ * Checks last sync date exposed filter for taxonomy terms.
+ */
+function brook_mobile_api_views_post_execute(&$view) {
+  if ($view->name === 'rest_taxonomy_terms') {
+    $exposed = $view->get_exposed_input();
+    if (!empty($exposed['last_sync_date'])) {
+      $updated = variable_get('brook_mobile_api_last_update_taxonomy_terms', '');
+      $last_sync_date = $exposed['last_sync_date'];
+
+      if ($last_sync_date > $updated) {
+        $view->result = array();
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_services_views_execute_view().
+ */
+function brook_mobile_api_services_views_execute_view_alter(&$output, $view) {
+
+  if ($view->name == 'rest_lots') {
+    // Rewrite the super/service manager names/phone
+    foreach ($output as $key => $result) {
+      if (!empty($result->lot_service_manager_name)) {
+        $vendor = brookfield_punchlist_vendor_lookup($result->lot_service_manager_name);
+        $output[$key]->lot_service_manager_name = $vendor['name'];
+        $output[$key]->lot_service_manager_phone = $vendor['phone'];
+      }
+      if (!empty($result->lot_superintendent_name)) {
+        $vendor = brookfield_punchlist_vendor_lookup($result->lot_superintendent_name);
+        $output[$key]->lot_superintendent_name = $vendor['name'];
+        $output[$key]->lot_service_manager_phone = $vendor['phone'];
+      }
+    }
+
+    $paged_output = array(
+      'results' => $output,
+      'total_results' => $view->total_rows,
+      'items_per_page' => $view->get_items_per_page(),
+    );
+
+    $output = $paged_output;
+  }
+
+}

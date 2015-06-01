@@ -1,0 +1,14 @@
+name = Brookfield construction gallery
+description = Functionality attached to the Brookfield construction phase gallery
+core = 7.x
+package = Brookfield
+
+; Dependencies
+dependencies[] = text_format_email_wysiwyg
+dependencies[] = entity
+dependencies[] = plupload
+dependencies[] = token
+stylesheets[all][] = css/brookfield_gallery.css
+
+; Files
+files[] = views/handlers/brookfield_gallery_views_gallery_display_date.inc

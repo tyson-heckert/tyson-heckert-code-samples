@@ -1,0 +1,534 @@
+<?php
+
+function metagenics_finder_practitioner_menu(){
+  // Menu item for criteria lists, covers both credentials and specialty and
+  // takes a url variable to decide which.
+  $items['finder_practitioner/criteria_list/%/%ctools_js'] = array(
+    'page callback' => 'metagenics_finder_practitioner_criteria_modal',
+    'page arguments' => array(2, 3),
+    'access callback' => true,
+    'type' => MENU_CALLBACK,
+  );
+
+// Menu item for returning the practitioners contact info.
+  $items['finder_practitioner/fap_contact_info/%'] = array(
+    'page callback' => 'metagenics_finder_practitioner_fap_contact_info',
+    'page arguments' => array(2),
+    'access callback' => true,
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['find-a-practitioner/practitioner-details'] = array(
+    'title' => 'Practitioner Details',
+    'page callback' => 'metagenics_finder_practitioner_pract_details_page',
+    'access arguments' => array('access content'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['admin/config/metagenics/find-a-practitioner'] = array(
+    'title' => 'Find a practitioner settings',
+    'description' => 'Configure the scores that will be added to the practitioner score.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('metagenics_finder_practitioner_system_settings_form'),
+    'access arguments' => array('administer metagenics settings'),
+    'file' => 'metagenics_finder_practitioner.admin.inc',
+  );
+
+  return $items;
+}
+
+// Function returning practitioners contact info, very straightforward.
+function metagenics_finder_practitioner_fap_contact_info($prac) {
+  $prac_obj = user_load($prac);
+
+  // If user has chosen to opt out of store email, hide on FAP contact as well.
+  $email = (empty($prac_obj->field_store_email_optout)) ? $prac_obj->mail : '';
+
+  print $prac_obj->field_contact_phone_number['und'][0]['value'] . ',' . $email;
+}
+
+// Pulls up search criteria as checkboxes.
+function metagenics_finder_practitioner_criteria_form($form, $form_state) {
+  $form = array();
+
+  $form_type = $form_state['var_form_type'];
+
+  // Pull in the options.
+  if ($form_type == 'credentials') {
+    $field = field_info_field('field_credentials');
+  }
+  else {
+    $field = field_info_field('field_health_condition_focus');
+  }
+
+  $option_list = i18n_field_translate_allowed_values($field);
+
+  // Add our js.
+  $form['#attached']['js'][] = drupal_get_path('module', 'metagenics_finder_practitioner').'/js/metagenics_finder_practitioner_item_checker.js';
+
+  // Add the checkboxes using our array of options.
+  $form['item_list'] = array(
+    '#type' => 'checkboxes',
+    '#options' => $option_list,
+    '#title' => $form_type == 'credentials' ? t('Credentials') : t('Specialty'),
+    '#prefix' => '<div id="list-' . $form_type . '" class="criteria-list"><span>' . t('(check all that apply)') . '</span><div id="selects"><span><input type="checkbox" class="checkall"> ' . t('Select all') . '</span><span><input type="checkbox" class="checknone"> ' . t('Deselect all') . '</span></div>',
+    '#suffix' => '</div><div class="fap-item-close-save button">' . t('Done') . '</div><div class="fap-item-close-nosave popups-close">x</div>',
+  );
+
+  return $form;
+}
+
+function metagenics_finder_practitioner_criteria_modal($type, $js = NULL) {
+
+ if ($js) {
+
+    //required ctools includes
+    ctools_include('modal');
+    ctools_include('ajax');
+
+    //set a form state for our form, add a variable for the type, this variable is from the url we've given
+    $form_state = array(
+      'ajax' => TRUE,
+      're_render' => TRUE,
+      'var_form_type' => $type,
+    );
+
+    //set the same variable as a drupal settings variable, this is going to be used with the jquery on the modal window itself
+    $form_settings = array(
+      'var_form_type' => $type,
+    );
+
+    drupal_add_js(array('metagenics_finder_practitioner' => $form_settings), 'setting');
+
+    //add our ctools form and print
+     $output = ctools_modal_form_wrapper('metagenics_finder_practitioner_criteria_form', $form_state);
+
+     print ajax_render($output);
+
+  }
+  else{
+    //return views_embed_view('practitioner_store_flagging', 'page');
+  }
+
+}
+
+/**
+ * Implements hook_form_alter().
+ *
+ */
+function metagenics_finder_practitioner_form_alter(&$form, &$form_state, $form_id){
+
+  if($form['#id'] == 'views-exposed-form-find-a-practitioner-initial-results-page'){
+
+
+    //required ctools includes
+    ctools_include('modal');
+    ctools_include('ajax');
+    ctools_modal_add_js();
+
+    //add our js and css
+    $form['#attached']['js'][] = drupal_get_path('module', 'metagenics_finder_practitioner').'/js/metagenics_finder_practitioner.js';
+    $form['#attached']['css'][] = drupal_get_path('module', 'metagenics_finder_practitioner').'/css/metagenics_finder_practitioner.css';
+
+    //set the fieldset holding all this search critera
+    $form['search_criteria'] = array(
+      '#type' => 'fieldset',
+      '#weight' => -5,
+      '#collapsible' => false,
+
+    );
+    $form['search_criteria']['title'] =  array(
+        '#type' => 'item',
+        '#markup' => '<div class="finder-practitioner-title"><h2>' . t('Advanced Search') . '</h2></div>',
+        '#weight' => -100,
+      );
+
+
+    //add our fields to the fieldset
+    $form['search_criteria']['field_practitioner_reference_roles_1'] = $form['field_practitioner_reference_roles_1'];
+
+    $form['search_criteria']['field_practitioner_reference_roles_1']['#options']['All'] = 'All';
+    $form['search_criteria']['field_practitioner_reference_roles_1']['#title'] = "FirstLine Therapy Certified: ";
+
+    unset($form['field_practitioner_reference_roles_1']);
+
+    if (variable_get('meta_custom_select_pract_enabled', 0)) {
+      $form['search_criteria']['field_practitioner_reference_field_online_store_available'] = $form['field_practitioner_reference_field_online_store_available'];
+
+      $form['search_criteria']['field_practitioner_reference_field_online_store_available']['#title'] = "Online Store Available: ";
+    }
+
+    unset($form['field_practitioner_reference_field_online_store_available']);
+
+    //use our own submit button, mirroring the one the search api location module uses
+    $form['search_criteria']['submit-button'] = array(
+      '#type' => 'item',
+      '#markup' => '<a class="form-submit" id="edit-field-location-geolocation-latlon-location-geocode">' . t('Search') . '</a>',
+      '#weight' => 101,
+      );
+
+      //our holding pen divs
+     $form['search_criteria']['credentials_holding'] = array(
+        '#type' => 'fieldset',
+        '#collapsible' => false,
+        '#title' => t('Practitioner Credentials'),
+        '#weight' => -2,
+      );
+
+     $form['search_criteria']['credentials_holding']['pen'] = array(
+        '#type' => 'item',
+        '#markup' => '<div class="credential-holding-pen item-holding-pen">' . t('Any') . '</div>',
+      );
+
+     $form['search_criteria']['specialty_holding'] = array(
+      '#type' => 'fieldset',
+        '#collapsible' => false,
+        '#title' => t('Practitioner Specialty'),
+        '#weight' => -1,
+      );
+
+      $form['search_criteria']['specialty_holding']['pen'] = array(
+        '#type' => 'item',
+        '#markup' => '<div class="specialty-holding-pen item-holding-pen">' . t('Any') . '</div>',
+      );
+
+       //the next two form items are the ctools modal window links, one for credentials and one for specialty, specifying that in the url we use
+    $form['search_criteria']['credentials_holding']['select_list_credentials'] = array(
+        '#type' => 'item',
+        '#markup' => ctools_modal_text_button(t('Select from list'), 'finder_practitioner/criteria_list/credentials/nojs', t('Select from list'), 'ctools-modal-metagenics-custom-style'),
+        '#weight' => 1,
+      );
+
+      $form['search_criteria']['specialty_holding']['select_list_specialty'] = array(
+        '#type' => 'item',
+        '#markup' => ctools_modal_text_button(t('Select from list'), 'finder_practitioner/criteria_list/specialty/nojs', t('Select from list'), 'ctools-modal-metagenics-custom-style'),
+        '#weight' => 1,
+      );
+
+     //the address search fields, broken up from the text field it used to be
+
+     $form['search_criteria']['location'] = array(
+        '#type' => 'fieldset',
+        '#weight' => -5,
+        '#collapsible' => false,
+        '#title' => t('Location'),
+      );
+
+
+    $form['search_criteria']['location']['search_radius'] = array(
+        '#type' => 'select',
+        '#title' => t('Radius'),
+        '#options' => array(
+         '10' => '10mi', '20' => '20mi','30' => '30mi', '40' => '40mi', '50' => '50mi'
+          ),
+        '#default_value' => '30',
+        '#weight' => -2,
+
+      );
+
+  }
+
+  // Put our new fields in their place.
+  if ($form_id == 'user_profile_form') {
+    global $user;
+    if (in_array('administrator', $user->roles) || in_array('meta csr', $user->roles)) {
+
+      $form['user_basic_information']['user_basic_left']['user_basic_left_fap'] = array(
+        '#title' => t('FAP info'),
+        '#type' => 'fieldset',
+        '#weight' => 80,
+        '#collapsible' => TRUE,
+      );
+
+      if (isset($form['field_practitioner_rating'])) {
+        $form['user_basic_information']['user_basic_left']['user_basic_left_fap']['field_practitioner_rating'] = $form['field_practitioner_rating'];
+      }
+
+      if (isset($form['field_practitioner_score'])) {
+        $form['user_basic_information']['user_basic_left']['user_basic_left_fap']['field_practitioner_score'] = $form['field_practitioner_score'];
+      }
+
+      if (!empty($form['field_practitioner_score'][LANGUAGE_NONE]['#default_value'])) {
+        $form['user_basic_information']['user_basic_left']['user_basic_left_fap']['field_practitioner_score']['#suffix'] = '<div class="calculated-score">Calculated Score: ' . practitioner_score_calc($form['field_practitioner_score'][LANGUAGE_NONE]['#default_value'][0], $form['#user'], 'full') . '</div>';
+      }
+
+      unset($form['field_practitioner_rating']);
+      unset($form['field_practitioner_score']);
+
+    }
+    else {
+      $form['field_practitioner_rating']['#access'] = FALSE;
+      $form['field_practitioner_score']['#access'] = FALSE;
+    }
+
+    $form['field_practitioner_score_calc']['#access'] = FALSE;
+    $form['field_online_store_available']['#access'] = FALSE;
+
+  }
+}
+
+//A nifty little hook that lets up tell drupal to use this module's form alter last.
+//We want it to fire after the csr form alter has done it's stuff
+function metagenics_finder_practitioner_module_implements_alter(&$implementations, $hook) {
+  if ($hook == 'form_alter') {
+    $group = $implementations['metagenics_finder_practitioner'];
+    unset($implementations['metagenics_finder_practitioner']);
+    $implementations['metagenics_finder_practitioner'] = $group;
+  }
+
+}
+
+function practitioner_score_calc($score, $user_obj, $return_type = null){
+  $calc_score = empty($score) ? 0 : $score;
+  $calc_grade = '';
+  $calc_extra = '';
+
+  //check against criteria and add to the metagenics score
+  if(array_key_exists(15, $user_obj->roles)){
+    $calc_score = $calc_score + (int)variable_get('flt_score', 0);
+    $calc_extra .= '<br>+'.variable_get('flt_score', 0).' FirstLine Therapy Practitioner';
+  }
+  if($user_obj->field_online_store_available['und'][0]['value'] == 'Yes'){
+    $calc_score = $calc_score + (int)variable_get('store_score', 0);
+    $calc_extra .= '<br>+'.variable_get('store_score', 0).' Online Store';
+  }
+
+  switch(true){
+    case $calc_score < 60:
+      $calc_grade = 'E';
+    break;
+    case $calc_score < 70:
+      $calc_grade = 'D';
+    break;
+    case $calc_score < 80:
+      $calc_grade = 'C';
+    break;
+    case $calc_score < 90:
+      $calc_grade = 'B';
+    break;
+    case $calc_score < 100:
+      $calc_grade = 'A';
+    break;
+    case $calc_score >= 100:
+      $calc_grade = 'A+';
+    break;
+    default:
+      $calc_grade = '0';
+    break;
+  }
+
+  if($return_type == 'full'){
+    return '<span class="calc-score">'.$score.$calc_extra.'<br>= <strong>'.$calc_score.' ('.$calc_grade.')</strong></span>';
+  }
+  else{
+    return $calc_score;
+  }
+
+}
+
+function metagenics_finder_practitioner_user_presave(&$edit, $account, $category){
+  if (user_has_practitioner_role($account->roles) && !empty($account->field_practitioner_score)) {
+    $edit['field_practitioner_score_calc']['und'][0]['value'] = practitioner_score_calc($account->field_practitioner_score['und'][0]['value'], $account);
+  }
+}
+
+/**
+ * Implements hook_search_api_solr_query_alter().
+ */
+function metagenics_finder_practitioner_search_api_solr_query_alter(array &$call_args, SearchApiQueryInterface &$query) {
+  if(arg(0)=='find-a-practitioner'){
+
+   $call_args['params']['sort'] = 'geodist() asc';
+
+  }
+
+  /*This is used if we want to sort by score then distance*/
+   /*$spatial = $query->getOption('spatial');
+    if($spatial['radius'] != 5000){
+      $call_args['params']['sort'] = 'is_field_practitioner_reference:field_practitioner_score_calc desc, geodist() asc';
+    }
+    else{
+      $call_args['params']['sort'] = 'geodist() asc';
+    }
+  } */
+}
+
+
+function metagenics_finder_practitioner_preprocess_views_view_field (&$vars) {
+  $field = $vars['field'];
+  $view = $vars['view'];
+  $row = $vars['row'];
+
+  switch ($view->name) {
+    case 'find_a_practitioner' :
+      if (isset($field->field_info)) {
+        switch ($field->field_info['field_name']) {
+          case 'field_online_store_available' :
+            $pract = $row->_field_data['field_practitioner_reference:field_online_store_available']['entity'];
+            $vars['pract_uid'] = $pract->uid;
+
+            $shop_now = array(
+              '#prefix' => '<div class="fap-shop-now-wrapper-empty">',
+              '#suffix' => '</div>',
+            );
+            if (isset($row->_entity_properties['field_practitioner_reference:field_online_store_available']) && $row->_entity_properties['field_practitioner_reference:field_online_store_available'] === 'Yes') {
+              if(variable_get('meta_fap_shop_now_enabled', 0) == 1){
+                $fap_opt_in = TRUE;
+                if (isset($row->_entity_properties['field_practitioner_reference:field_fap_opt_in'])) {
+                  $fap_opt_in = $row->_entity_properties['field_practitioner_reference:field_fap_opt_in'];
+                }
+
+                if($fap_opt_in){
+                  global $base_url;
+                  $url = parse_url($base_url);
+                  $url_parts = explode('.', $url['host']);
+                  if ($url_parts[0] == 'www') {
+                    unset($url_parts[0]);
+                  }
+                  array_unshift($url_parts, $pract->field_merchant_unlock_code['und'][0]['value']);
+
+                  $shop_now = array(
+                    '#prefix' => '<div class="fap-shop-now-wrapper">',
+                    '#suffix' => '</div>',
+                    '#theme' => 'link',
+                    '#text' => t('Shop Now'),
+                    '#path' => 'http://' . implode('.', $url_parts),
+                    '#options' => array(
+                      'attributes' => array(
+                        'class' => array(
+                          'fap-shop-now',
+                        ),
+                      ),
+                      'html' => FALSE,
+                    ),
+                  );
+                }
+              }
+            }
+            $vars['shop_now'] = $shop_now;
+            break;
+        }
+      }
+      break;
+  }
+}
+
+/**
+ * Menu callback for the practitioner details page.
+ */
+function metagenics_finder_practitioner_pract_details_page() {
+  $output = '<h1 class="page-title">' . t('Practitioner Details') . '</h1>';
+
+  if (isset($_GET['practitioner-finder'])) {
+    $uid = htmlentities($_GET['practitioner-finder']);
+    $profile_data = user_load($uid);
+
+    $first_name = field_view_field('user', $profile_data, 'field_first_name');
+    $last_name = field_view_field('user', $profile_data, 'field_last_name');
+
+    $output .= '<div class="practitioner-header clearfix"><h2>' . $first_name[0]['#markup'] . " " . $last_name[0]['#markup'] . '</h2></div>';
+
+    $output .= '<div class="pracitioner-section">';
+
+    $style = variable_get('user_picture_style', '');
+    $user_picture = theme('image_style', array('style_name' => $style, 'path' => $profile_data->picture->uri));
+
+    if (isset($user_picture)) {
+      if (empty($user_picture) == false) {
+        $output .= '<div class="practitioner-photo">';
+        $output .= $user_picture;
+        $output .= '</div>';
+      }
+    }
+
+    $output .=  '<div class="practitioner-info">';
+    if (isset($profile_data->field_credentials['und'])) {
+      $credentails = '<div class="field field-name-field-practitioner-credentials field-type-link-field field-label-inline clearfix"><div class="field-label">' . t('Credentials:') . '&nbsp;</div><div class="field-items">';
+      $num_credentials = 0;
+      foreach ($profile_data->field_credentials['und'] as $credential) {
+        $credentails .= $credential['value'] . ', ';
+        $num_credentials += 1;
+      }
+      if ($num_credentials > 0) {
+        $output .= substr($credentails, 0, strlen($credentails)-2) . '</div></div>';
+      }
+    }
+
+    if (isset($profile_data->field_health_condition_focus['und'])) {
+      $focus_areas = '<div class="field field-name-field-practitioner-focus-areas field-type-link-field field-label-inline clearfix"><div class="field-label">' . t('Practice focus areas:') . '&nbsp;</div><div class="field-items">';
+      $num_focus_areas= 0;
+      foreach ($profile_data->field_health_condition_focus['und'] as $focus) {
+        $focus_areas .= $focus['value'] . ', ';
+        $num_focus_areas += 1;
+      }
+      if ($num_focus_areas> 0) {
+        $output .= substr($focus_areas, 0, strlen($focus_areas)-2) . '</div></div>';
+      }
+    }
+
+    if (empty($profile_data->field_store_email_optout[LANGUAGE_NONE][0]['value'])) {
+      $output .= '<div class="field field-name-field-practitioner-email field-type-link-field field-label-inline clearfix"><div class="field-label">' . t('E-mail:') . '&nbsp;</div><div class="field-items"><a href="mailto:' . $profile_data->mail . '?Subject=Request for an appointment">' .  $profile_data->mail . '</a></div></div>';
+    }
+
+    $output .= str_replace('<a href=', '<a target="_blank" href=', str_replace('label-above', 'label-inline clearfix', drupal_render(field_view_field('user', $profile_data, 'field_practitioner_website'))));
+    $output .= str_replace('label-above', 'label-inline clearfix', drupal_render(field_view_field('user', $profile_data, 'field_contact_phone_number')));
+    $output .= '</div></div>';
+
+    $output .= drupal_render(field_view_field('user', $profile_data, 'field_biography'));
+
+    $output .= '<div class="entity entity-field-collection-item field-collection-item-field-coll-practice-location clearfix">';
+    $output .= '<div class="field-label">' . t('Practice locations:') . '&nbsp;</div>';
+    foreach ($profile_data->field_coll_practice_location['und'] as $location_id) {
+      $output .= '<div class="field_coll_location_set clearfix">';
+      $location_entity = entity_load('field_collection_item', array($location_id['value']));
+
+      if (isset($location_entity[$location_id['value']]->field_practice_photo['und'][0])) {
+        $photo = $location_entity[$location_id['value']]->field_practice_photo['und'][0];
+          $src = file_create_url($photo['uri']);
+          $output .= '<div class="field field-name-field-practice-photo">';
+          $output .= '<img typeof="foaf:Image" src="' . $src . '" width="100" height="100" alt="" />';
+          $output .= '</div>';
+        }
+      if (isset($location_entity[$location_id['value']]->field_practice_location['und'][0])) {
+        $location = $location_entity[$location_id['value']]->field_practice_location['und'][0];
+          $output .= '<div class="field field-name-field-practice-location">';
+          $eaddr = '';
+          if (isset($location['organisation_name'])) {
+            $output .= '<div>' . $location['organisation_name'] . '</div>';
+          }
+          if (isset($location['thoroughfare'])) {
+            $output .='<div>' . $location['thoroughfare'] . '</div>';
+            if (empty($eaddr) == true) {
+              $eaddr .= $location['thoroughfare'];
+            } else {
+              $eaddr .= '+' . $location['thoroughfare'];
+            }
+          }
+          if (isset($location['premise'])) {
+            $output .='<div>' . $location['premise'] . '</div>';
+            if (empty($eaddr) == true) {
+              $eaddr .= $location['premise'];
+            } else {
+              $eaddr .= '+' . $location['premise'];
+            }
+          }
+          if (isset($location['locality'])) {
+            $output .='<div>' . $location['locality'] . ', ' . $location['administrative_area'] . ' '. $location['postal_code'] . '</div>';
+            if (empty($eaddr) == true) {
+              $eaddr .= $location['locality'] . '+' . $location['administrative_area'] . "+". $location['postal_code'];
+            } else {
+              $eaddr .= '+' . $location['locality'] . '+' . $location['administrative_area'] . "+". $location['postal_code'];
+            }
+          }
+          $output .= '<div class="get-directions"><a class="button" target="_blank" href="http://maps.google.com/maps?daddr=' . $eaddr . '">' . t('Get Directions') . '</a></div>';
+          $output .= '</div>';
+        }
+      $output .= '</div>';
+    }
+    $output .= '</div>';
+  } else {
+      $output .= t('We are sorry, the specified practitioner could not be found.');
+  }
+
+  return $output;
+}

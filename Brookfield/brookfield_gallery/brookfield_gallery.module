@@ -1,0 +1,874 @@
+<?php
+/**
+ * @file
+ * Custom gallery functionality.
+ */
+
+module_load_include('inc', 'brookfield_gallery', 'brookfield_gallery.bulk_upload');
+
+/**
+ * Implements hook_init().
+ */
+function brookfield_gallery_init() {
+  // Do not load modal_forms during the Drupal installation process, eg if part
+  // of installation profiles.
+  if (!drupal_installation_attempted()) {
+    _brookfield_gallery_doheader();
+  }
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function brookfield_gallery_views_api() {
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'brookfield_gallery') . '/views',
+  );
+}
+
+/**
+ * Adds ctools js files when needed.
+ */
+function _brookfield_gallery_doheader() {
+  static $already_added = FALSE;
+  if ($already_added) {
+    // Don't add the JavaScript and CSS multiple times.
+    return;
+  }
+
+  // Include the CTools tools that we need.
+  ctools_include('ajax');
+  ctools_include('modal');
+  // Add CTools' javascript to the page.
+  ctools_modal_add_js();
+  $already_added = TRUE;
+}
+/**
+ * Implements hook_preprocess_page().
+ */
+function brookfield_gallery_preprocess_page(&$variables) {
+  $path = drupal_get_path('module', 'brookfield_gallery');
+  $modal_style = brookfield_gallery_modal_styles('default');
+  drupal_add_js($modal_style, 'setting');
+  drupal_add_js($path . '/js/brookfield_gallery_modal.js');
+
+}
+
+/**
+ * Implements hook_menu().
+ */
+function brookfield_gallery_menu() {
+  $items['home/gallery/%/%/%ctools_js'] = array(
+    'page callback' => 'brookfield_gallery_modal_content',
+    'page arguments' => array(2, 3, 4),
+    'access arguments' => array('access content'),
+  );
+
+  $items['home/gallery/large/%'] = array(
+    'page callback' => 'brookfield_gallery_load_image',
+    'page arguments' => array(3),
+    'access arguments' => array('access content'),
+  );
+
+  $items['home/gallery-grid/%/%ctools_js'] = array(
+    'page callback' => 'brookfield_gallery_large_grid',
+    'page arguments' => array(2, 3),
+    'access arguments' => array('access content'),
+  );
+
+  $items['gallery/bulk-upload-home/%ctools_js/%'] = array(
+    'page callback' => 'brookfield_ctools_gallery_bulk_upload_home',
+    'page arguments' => array(2, 3),
+    'access arguments' => array('access content'),
+  );
+
+  $items['gallery/bulk-upload/%ctools_js'] = array(
+    'page callback' => 'brookfield_ctools_gallery_bulk_upload_workbench',
+    'page arguments' => array(2),
+    'access arguments' => array('access content'),
+  );
+
+  $items['gallery/close'] = array(
+    'page callback' => 'brookfield_ctools_gallery_close',
+    'access arguments' => array('access content'),
+  );
+
+  $items['gallery/large/public/%'] = array(
+    'page callback' => 'brookfield_gallery_public_load_image',
+    'page arguments' => array(3),
+    'access arguments' => array('access content'),
+  );
+
+  $items['progress-gallery/%/%'] = array(
+    'page callback' => 'brookfield_gallery_public',
+    'page arguments' => array(1, 2),
+    'access arguments' => array('access content'),
+  );
+
+  $items['buyer-gallery/large/public/%'] = array(
+    'page callback' => 'brookfield_gallery_buyer_public_load_image',
+    'page arguments' => array(3),
+    'access arguments' => array('access content'),
+  );
+
+  $items['buyer-gallery/%/%/%'] = array(
+    'page callback' => 'brookfield_gallery_buyer_public',
+    'page arguments' => array(1, 2, 3),
+    'access arguments' => array('access content'),
+  );
+
+  $items['home/gallery/%node/share-photos/%ctools_js'] = array(
+    'title' => 'Email photos to friends',
+    'page callback' => 'brookfield_gallery_load_email_photo_form',
+    'page arguments' => array(2, 4),
+    'access arguments' => array('access content'),
+  );
+
+  $items['admin/config/brookfield/import/gallery-images'] = array(
+    'title' => 'Import gallery images',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('brookfield_gallery_import_images_form'),
+    'access arguments' => array('administer nodes'),
+  );
+
+  $items['admin/config/media/gallery_bulk_media_upload'] = array(
+    'title' => 'Brookfield Gallery Bulk Upload Settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('bulk_media_upload_admin'),
+    'access arguments' => array('access administration pages'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'brookfield_gallery.admin.inc',
+  );
+
+  $items['gallery/admin/edit/%'] = array(
+    'title' => 'Brookfield Gallery Images Admin',
+    'page callback' => 'brookfield_gallery_admin_edit_page',
+    'page arguments' => array(3),
+    'access arguments' => array('edit any construction_gallery_image content'),
+  );
+
+  $items['delete/gallery_image/%/%'] = array(
+    'title' => 'Gallery Image Delete',
+    'page callback' => 'brookfield_gallery_admin_edit_page_delete',
+    'page arguments' => array(2,3),
+    'access arguments' => array('delete any construction_gallery_image content'),
+  );
+
+  return $items;
+}
+
+function brookfield_gallery_public($lot_nid, $image_nid){
+  $output = views_embed_view('construction_gallery', 'gallery_large_master', $image_nid);
+  $output .= views_embed_view('construction_gallery', 'gallery_public_grid', $lot_nid);
+  return $output;
+}
+
+function brookfield_gallery_buyer_public($lot_nid, $customer_uid, $image_nid){
+  $output = views_embed_view('home_buyer_photo', 'home_buyer_public_main', $image_nid);
+  $output .= views_embed_view('home_buyer_photo', 'home_buyer_public_thumbs', $customer_uid, $lot_nid);
+  return $output;
+}
+
+function brookfield_gallery_import_images_form($form, &$form_state){
+
+  $sql = "SELECT n.nid, n.title, sc.field_subdivision_code_value
+          FROM {node} n
+          INNER JOIN {field_data_field_subdivision_code} sc ON n.nid = sc.entity_id
+          WHERE n.type = 'neighborhood'";
+
+  $results = db_query($sql)->fetchAllAssoc('nid');
+
+  $options = array();
+
+  foreach ($results as $result) {
+    $options[$result->nid] = $result->title . ' (' . $result->field_subdivision_code_value . ')';
+  }
+
+  asort($options);
+
+  $form = array();
+
+  $form['brookfield_gallery_import_directory'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Directory'),
+    '#description' => t('Enter the files directory to scan for xml files to import'),
+    '#required' => TRUE,
+    '#default_value' => variable_get('brookfield_gallery_import_directory', 'public://galleries-import'),
+  );
+
+  $form['import_by_neighborhood'] = array(
+    '#type' => 'checkboxes',
+    '#options' => $options,
+    '#title' => 'Select the neighborhoods to import images for',
+    '#required' => TRUE,
+  );
+
+  $form['actions'] = array(
+    '#type' => 'actions',
+  );
+
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+    '#submit' => array('brookfield_gallery_import_images_form_submit'),
+  );
+
+  return $form;
+}
+
+/**
+ * Submit callback for metagenics_importer_xml_import_form().
+ */
+function brookfield_gallery_import_images_form_submit(&$form, &$form_state) {
+  $values = $form_state['values'];
+
+  variable_set('brookfield_gallery_import_directory', $values['brookfield_gallery_import_directory']);
+  $import_directory = $values['brookfield_gallery_import_directory'];
+
+  $gallery_images = file_scan_directory($import_directory, '//');
+
+  if (empty($gallery_images)) {
+    drupal_set_message(t('No images could be found in the directory named: @directory', array('@directory' => $import_directory)), 'error');
+    return;
+  }
+
+  $neighborhoods_selected = array();
+
+  foreach ($values['import_by_neighborhood'] as $neighborhood_id) {
+    if ($neighborhood_id !== 0) {
+      $neighborhoods_selected[] = $neighborhood_id;
+    }
+  }
+
+  $neighborhoods = implode(', ', $neighborhoods_selected);
+
+  if (!empty($gallery_images)) {
+    $batch = array(
+      'operations' => array(),
+      'title' => t('Importing gallery images'),
+    );
+    foreach ($gallery_images as $image) {
+
+      $image_parts = explode('.', $image->uri);
+      $file_extention = end($image_parts);
+      if(strtolower($file_extention) != 'jpg'){
+        continue;
+      }
+
+      $batch['operations'][] = array(
+        'brookfield_gallery_import_images_worker',
+        array(
+          $image,
+          $neighborhoods,
+        ),
+      );
+    }
+  }
+
+  batch_set($batch);
+}
+
+function brookfield_gallery_import_images_worker($image, $neighborhoods){
+  global $user;
+
+  $uri_parts = explode('/', $image->uri);
+  $job = $uri_parts[4];
+
+  $sql = 'SELECT n.nid
+          FROM {node} n
+          INNER JOIN {field_data_field_neighborhood_reference} nr ON n.nid = nr.entity_id
+          WHERE title = :job
+          AND nr.field_neighborhood_reference_target_id IN (:neighborhoods)
+          LIMIT 1';
+
+  $results = db_query($sql, array(':job' => $job, ':neighborhoods' => $neighborhoods));
+
+  try {
+    foreach ($results as $record) {
+
+      $lot_nid = $record->nid;
+
+      $file = file_get_contents($image->uri);
+
+      // Saves a file to the specified destination and creates a database entry.
+      $file = file_save_data($file, 'public://' . $image->filename, FILE_EXISTS_REPLACE);
+
+      $node = new stdClass();
+      $node->title = $image->name;
+      $node->type = "construction_gallery_image";
+
+      // Sets some defaults. Invokes hook_prepare() and hook_node_prepare().
+      node_object_prepare($node);
+
+      $node->uid = $user->uid;
+      $node->status = 1;
+      $node->promote = 0;
+      $node->comment = 0;
+
+      $node->field_lot_reference['und'][]['target_id'] = $lot_nid;
+      $node->field_gallery_image['und'][] = array(
+        'fid' => $file->fid,
+        'display' => 1,
+        'description' => '',
+      );
+      $node->field_gallery_phase_ref['und'][0]['tid'] = 1099;
+
+      $node = node_submit($node);
+      node_save($node);
+    }
+  }
+  catch (Exception $e) {
+    watchdog('Brookfield Photo Import', 'See '  . __FUNCTION__ . '() ' .  $e->getMessage(), NULL, WATCHDOG_ERROR);
+  }
+}
+
+/**
+ * Generates content for gallery modal.
+ *
+ * @param int $image_id
+ *   nid of gallery image
+ * @param int $unit_id
+ *   nid of lot thie gallery image is refereced to.
+ * @param boolead $js
+ *   checks to see if javascript is available in browser
+ *
+ * @return markup
+ *   rendered markup for modal
+ */
+function brookfield_gallery_modal_content($image_id, $unit_id, $js = NULL) {
+  if ($js) {
+    global $user;
+
+    $_SESSION['brookfield'][$user->uid . '_image_share'] = $image_id;
+    $output = '<h2 class="gallery-modal-title">Brookfield Photo Gallery</h2>';
+    $output .= l(t('<span class="icon fa fa fa-th"></span>Grid View'), 'home/gallery-grid/' . $unit_id . '/nojs', array('html' => TRUE, 'attributes' => array('class' => array('ctools-use-modal', 'ctools-modal-brookfield-gallery-modal', 'switch-to-grid'))));
+    $output .= views_embed_view('construction_gallery', 'gallery_large_thumbnails', $unit_id);
+
+    if($user->uid != 0){
+      $output .= '<div class="gallery-share-links">';
+      //$output .= '<span class="gallery-share-fb">' . fboauth_action_display('brookfield_fb_share_photo', 'home/' . $unit_id) . '</span>';
+      $output .= ctools_modal_text_button('', 'home/gallery/' . $unit_id . '/share-photos/nojs', '', 'gallery-share-email');
+      $output .= '</div>';
+    }
+
+    $output .= '<div class="gallery-loading-image"></div>';
+    $output .= '<div id="master-wrapper">' . views_embed_view('construction_gallery', 'gallery_large_master', $image_id) . '</div>';
+
+    return ctools_modal_render('', $output);
+  }
+  else {
+    $image = node_load($image_id);
+    return node_view($image);
+  }
+}
+
+function brookfield_gallery_large_grid($unit_id, $js = NULL){
+  if ($js) {
+    $output = views_embed_view('construction_gallery', 'gallery_large_grid', $unit_id);
+    $commands[] = ctools_modal_command_display('',$output);
+    print ajax_render($commands);
+  }
+  else{
+    return views_embed_view('construction_gallery', 'gallery_large_thumbnails', $unit_id);
+  }
+}
+
+function brookfield_ctools_gallery_bulk_upload_home($js = NULL, $nid = null){
+
+  if ($js) {
+
+    $lot = node_load($nid);
+    $form_state = array(
+      'title' => '<i class="fa fa-picture-o"></i> Photo Upload - Lot # ' . $lot->title,
+      'ajax' => TRUE,
+      'lot_id' => $nid,
+    );
+
+    $output = ctools_modal_form_wrapper('brookfield_gallery_bulk_media_upload_upload_form', $form_state);
+    if (!empty($form_state['executed'])) {
+      $output = array();
+      $output[] = ctools_modal_command_dismiss();
+      $output[] = ctools_ajax_command_reload();
+    }
+    print ajax_render($output);
+    exit;
+
+  }
+  else {
+    return drupal_get_form('brookfield_gallery_bulk_media_upload_upload_form');
+  }
+}
+
+function brookfield_ctools_gallery_bulk_upload_workbench($js = NULL) {
+
+  if ($js) {
+
+    $form_state = array(
+      'title' => 'Upload',
+      'ajax' => TRUE,
+    );
+
+    $output = ctools_modal_form_wrapper('brookfield_gallery_bulk_media_upload_upload_form', $form_state);
+    if (!empty($form_state['executed'])) {
+      $output = array();
+      $output[] = ctools_modal_command_dismiss();
+      $output[] = ctools_ajax_command_reload();
+    }
+    print ajax_render($output);
+    exit;
+
+  }
+  else {
+    return drupal_get_form('brookfield_gallery_bulk_media_upload_upload_form');
+  }
+}
+
+function brookfield_gallery_admin_edit_page($lot_nid = NULL){
+
+  //if we're passing a lot ID, we're probably on the admin page
+  if(!empty($lot_nid)){
+    $output = views_embed_view('gallery_admin', 'gallery_admin_page', $lot_nid);
+  }
+  //if there's no ID we're doing this through the modal
+  else{
+    $output = views_embed_view('construction_gallery', 'gallery_admin_modal');
+  }
+
+  return $output;
+}
+
+function brookfield_gallery_admin_edit_page_delete($image_nid, $context){
+
+  if($context == 'page'){
+    //grab the lot ID before we delete this node, we'll need it to refresh the view
+    $image_node = node_load($image_nid);
+    $lot_id = $image_node->field_lot_reference['und'][0]['target_id'];
+    //delete the node
+    node_delete($image_nid);
+    $html = brookfield_gallery_admin_edit_page($lot_id);
+  }
+  else{
+    //reup the session with the new image id's
+    //we don't really need it for here, we'll need it later when we send an email though
+    $image_nids = explode(',', $_SESSION['brookfield']['bulk_media_upload_batch_result']);
+
+    if(($key = array_search($image_nid, $image_nids)) !== false) {
+      unset($image_nids[$key]);
+    }
+
+    $_SESSION['brookfield']['bulk_media_upload_batch_result'] = implode(',', $image_nids);
+
+    //delete the node
+    node_delete($image_nid);
+    $html = brookfield_gallery_admin_edit_page();
+  }
+
+  //replace the view with an updated copy
+  $commands[] = ajax_command_replace('.view-display-id-gallery_admin_' . $context, $html);
+  print ajax_render($commands);
+}
+
+function brookfield_gallery_public_load_image($image_id){
+  $output[] = ajax_command_replace('.view-display-id-gallery_large_master', views_embed_view('construction_gallery', 'gallery_large_master', $image_id));
+  print ajax_render($output);
+}
+
+function brookfield_gallery_buyer_public_load_image($image_id){
+  $output[] = ajax_command_replace('.view-display-id-home_buyer_public_main', views_embed_view('home_buyer_photo', 'home_buyer_public_main', $image_id));
+  print ajax_render($output);
+}
+
+function brookfield_gallery_load_image($image_id) {
+  global $user;
+  $_SESSION['brookfield'][$user->uid . '_image_share'] = $image_id;
+  $output[] = ajax_command_html('#master-wrapper', views_embed_view('construction_gallery', 'gallery_large_master', $image_id));
+  print ajax_render($output);
+}
+
+function brookfield_gallery_block_info() {
+
+  $blocks['dash-gallery'] = array(
+    'info' => t('Home Dashboard Gallery'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+
+  return $blocks;
+
+}
+/**
+ * Implements hook_block_view().
+ */
+function brookfield_gallery_block_view($delta = '') {
+  global $user;
+
+  $block = array();
+
+  switch ($delta) {
+
+    case 'dash-gallery':
+
+      $block['content'] = views_embed_view('construction_gallery', 'gallery_dash_thumbnails');
+      break;
+
+  }
+  return $block;
+}
+
+function brookfield_gallery_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id === 'views_form_construction_gallery_gallery_sorter') {
+    $form['#attached']['css'][] = drupal_get_path('module', 'brookfield_gallery') . '/css/brookfield_gallery.css';
+  }
+
+  if ($form_id == 'brookfield_gallery_bulk_media_upload_upload_form') {
+
+    if (strpos(current_path(), 'gallery/bulk-upload-home') !== FALSE) {
+      $lot = node_load($form_state['lot_id']);
+      $form['default_values']['field_lot_reference']['#access'] = FALSE;
+      $form['default_values']['field_lot_reference']['und'][0]['target_id']['#default_value'] = $lot->title . ' (' . $lot->nid . ')';
+
+      // Hide original date and customer reference fields.
+      $form['default_values']['field_image_original_date']['#access'] = FALSE;
+      $form['default_values']['field_customer_reference']['#access'] = FALSE;
+    }
+
+    $form['default_values']['field_neighborhood_reference']['#access'] = FALSE;
+
+    $form['#attached']['js'][] = drupal_get_path('module', 'brookfield_gallery') . '/js/brookfield_gallery_modal_extra.js';
+    // $form['#attached']['css'][] = drupal_get_path('module', 'brookfield_gallery') . '/css/brookfield_gallery.css';
+
+    //get rid of what we don't need
+    unset($form['import_information']);
+    $form['title']['#access'] = FALSE;
+    unset($form['token_help']);
+    $form['upload']['#title'] = 'Images';
+
+    $form['default_values']['field_image_original_date']['#access'] = FALSE;
+
+    $form['submit']['#ajax'] = array(
+      'callback' => 'brookfield_gallery_ajax_submit',
+      'wrapper' => 'brookfield-gallery-bulk-media-upload-upload-form',
+      'method' => 'replace',
+    );
+
+    //overwrite the submit function of this form to take full control of it
+    $form_state['batch_id'] = time();
+  }
+  elseif ($form_id == 'views_form_construction_gallery_gallery_admin_modal') {
+    $form['actions']['submit']['#ajax'] = array(
+      'path' => 'gallery/close',
+    );
+    $form['actions']['submit']['#value'] = 'Finish';
+  }
+}
+
+
+function brookfield_ctools_gallery_close() {
+
+  //create our notification here, it's really the only way we can know the user is done uploading/manipulating them
+  if(isset($_SESSION['brookfield']['bulk_media_upload_batch_result'])){
+    $images = explode(',', $_SESSION['brookfield']['bulk_media_upload_batch_result']);
+    $entity = node_load(end($images));
+    brookfield_notifications_create_gallery_notifications($entity);
+  }
+
+  $commands = array();
+  $commands[] = ctools_modal_command_dismiss();
+  $commands[] = ctools_ajax_command_reload();
+  //return array('#type' => 'ajax', '#commands' => $commands);
+  print ajax_render($commands);
+}
+
+function brookfield_gallery_ajax_submit(&$form, &$form_state) {
+
+/* //this should be here but messes the image upload up
+  if(form_get_errors()){
+    return $form;
+  }
+*/
+  $view = views_embed_view('construction_gallery', 'gallery_admin_modal');
+  //$output  = ajax_command_html('#bulk-media-upload-upload-form', $view);
+  return $view;
+
+}
+
+/**
+ * Implements hook_permission().
+ * @return [type] [description]
+ */
+function brookfield_gallery_permission() {
+  return array(
+    'upload gallery images' => array(
+      'title' => t('Upload new gallery images'),
+    ),
+  );
+}
+
+/**
+ * Custom function to create ctools modal style.
+ * @param string $style_type
+ *   Use this to swit
+ * @return array
+ *   Returns an array with all of the required style attributes
+ */
+function brookfield_gallery_modal_styles($style_type = 'default') {
+
+  // We should convert this to a switch case if we ever have more than one.
+  if ($style_type == 'default') {
+    // $path = drupal_get_path('theme', 'buckboot');
+    $path = drupal_get_path('module', 'brookfield_gallery');
+
+    $throbber_attributes = array(
+      'path' => $path . '/images/fancybox_loading.gif',
+      'alt' => t('Loading...'),
+      'title' => t('Loading'),
+      'attributues' => array(
+        'class' => array(
+          'brookfield-modal-throbber',
+        ),
+      ),
+    );
+
+    $thobber = theme('image', $throbber_attributes);
+
+    $modal_style = array(
+    // !! you will have to add  ctools-modal-brookfield-gallery-modal to the modal links!
+      'brookfield-gallery-modal' => array(
+        'modalSize' => array(
+          'type' => 'fixed',
+          'width' => 1000,
+          'height' => 500,
+
+        ),
+        'modalOptions' => array(
+          'opacity' => .85,
+          'background-color' => '#000',
+        ),
+        'animation' => 'slideDown',
+        'modalTheme' => 'BrookfieldGalleryModalDialog',
+        'throbber' => $thobber,
+      ),
+    );
+
+    return $modal_style;
+  }
+}
+
+function brookfield_gallery_load_email_photo_form($node, $js) {
+  if (!$js) {
+    // Do something.
+  }
+
+  $form_state = array(
+    'title' => t('<i class="fa fa-picture-o"></i> Email Your Brookfield Home Photos To Friends & Family!'),
+    'ajax' => TRUE,
+    'unit_id' => $node->nid,
+    'home_buyer' => !empty($_GET['image_id']) ? $_GET['image_id'] : NULL,
+  );
+
+  $output = ctools_modal_form_wrapper('brookfield_gallery_email_photo_form', $form_state);
+  if ($form_state['executed']) {
+    $commands = array();
+    $commands[] = ctools_modal_command_dismiss();
+    $commands[] = ctools_modal_command_display(t('Success'), t('Your photos have been sent successfully!'));
+  }
+  else {
+    $commands = $output;
+  }
+
+  print ajax_render($commands);
+  exit;
+}
+
+function brookfield_gallery_email_photo_form($form, &$form_state) {
+  global $user;
+  $user_wrap = entity_metadata_wrapper('user', user_load($user->uid));
+
+  $form = array(
+    '#attached' => array(
+      'js' => array(drupal_get_path('module', 'brookfield_gallery') . '/js/brookfield_gallery_modal.js'),
+    ),
+    '#attributes' => array(
+      'class' => array('brookfield-gallery-email-photo-form'),
+    ),
+  );
+
+  $form['header_text'] = array(
+    '#type' => 'item',
+    '#markup' => t('Choose up to 6 photos to attach to the email<br>Your Friends/Family members will also receive a link to view your entire gallery'),
+  );
+
+  $image_ids = db_select('field_data_field_lot_reference', 'ur');
+  $image_ids->join('field_data_field_gallery_image', 'gi', 'ur.entity_id = gi.entity_id');
+  $image_ids->join('file_managed', 'fm', 'gi.field_gallery_image_fid = fm.fid');
+  $image_ids->condition('ur.field_lot_reference_target_id', $form_state['unit_id'])
+  ->fields('gi', array('entity_id'))
+  ->fields('fm', array('uri'));
+
+  // If sharing home_buyer images...
+  if (!empty($form_state['home_buyer'])) {
+    $image = node_load($form_state['home_buyer']);
+
+    $terms = taxonomy_get_term_by_name('Home Buyer', 'unit_construction_phase');
+    $term = reset($terms);
+
+    // Add conditions to get the home buyer image specifically if the home buyer
+    // is the same on the lot and image.
+    $image_ids->join('field_data_field_gallery_phase_ref', 'pr', 'ur.entity_id = pr.entity_id');
+    $image_ids->join('field_data_field_customer_reference', 'cr', 'gi.entity_id = cr.entity_id');
+    $image_ids->condition('pr.field_gallery_phase_ref_tid', $term->tid);
+    $image_ids->condition('cr.field_customer_reference_target_id', $image->field_customer_reference[LANGUAGE_NONE][0]['target_id']);
+
+    $image_default = array($form_state['home_buyer']);
+  }
+  else {
+    $image_default = array($_SESSION['brookfield'][$user->uid . '_image_share']);
+  }
+
+  $results = $image_ids->execute();
+
+  while($result = $results->fetchAssoc()){
+    $options[$result['entity_id']] = '<img src="' . image_style_url('thumbnail', $result['uri']) . '">';
+  }
+
+  $form['select_images'] = array(
+    '#type' => 'checkboxes',
+    '#options' => $options,
+    '#required' => TRUE,
+    '#default_value' => $image_default,
+  );
+
+  $form['to'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Send to'),
+    '#description' => t('Separate email addresses by commas.'),
+    '#required' => TRUE,
+  );
+
+  $name = $user_wrap->field_first_name->value() . ' ' . $user_wrap->field_last_name->value();
+  $form['subject'] = array(
+    '#type' => 'textfield',
+    '#default_value' => t('!name sent you photos of a new Brookfield Home', array('!name' => $name)),
+    '#title' => t('Subject'),
+  );
+
+  $form['body'] = array(
+    '#type' => 'text_format',
+    '#format' => 'email_wysiwyg',
+    '#title' => t('Body'),
+    '#default_value' => t('Check out these photos of my new Brookfield Home!'),
+  );
+
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Send Mail'),
+  );
+
+  return $form;
+}
+
+function brookfield_gallery_email_photo_form_validate($form, &$form_state) {
+  $images = array_filter($form_state['values']['select_images']);
+
+  if (empty($images)) {
+    drupal_set_message(t('Please select at least one image to share.'), 'error');
+    return FALSE;
+  }
+}
+
+function brookfield_gallery_email_photo_form_submit($form, &$form_state) {
+  global $user;
+  $account = user_load($user->uid);
+  $to = trim($form_state['values']['to']);
+  $images = array_filter($form_state['values']['select_images']);
+
+  $params = array(
+    'subject' => trim($form_state['values']['subject']),
+    'body' => array(trim($form_state['values']['body']['value'])),
+  );
+
+  if (!empty($images)) {
+    $params['body'][] = '<table style="width:600px; margin-bottom:20px;"><tr>';
+    $count = 1;
+    foreach ($images as $image_nid) {
+      $image_node = node_load($image_nid);
+      $fid = $image_node->field_gallery_image['und'][0]['fid'];
+      $file = file_load($fid);
+      $derivative_uri = image_style_url('email_share_image', $file->uri);
+      image_style_create_derivative('email_share_image', $file->uri, $derivative_uri);
+      if ($count % 4 == 0) {
+        $params['body'][] = '</tr><tr>';
+      }
+
+      if (!empty($form_state['home_buyer'])) {
+        $gallery_link = l('<img src="' . urlencode($derivative_uri) . '">', 'buyer-gallery/' . $form_state['unit_id'] . '/' . $image_node->field_customer_reference[LANGUAGE_NONE][0]['target_id'] . '/' . $image_nid, array('html' => TRUE));
+      }
+      else{
+        $gallery_link = l('<img src="' . urlencode($derivative_uri) . '">', 'progress-gallery/' . $form_state['unit_id'] . '/' . $image_nid, array('html' => TRUE));
+      }
+
+      $params['body'][] = '<td width="200" style="text-align:center; width:200px;">' . $gallery_link . '</td>';
+      $count++;
+    }
+    $params['body'][] = '</tr></table>';
+
+    if (!empty($form_state['home_buyer'])) {
+      $params['body'][] = '<span style="text-decoration: none;">' . l(t('Click here to view my entire gallery'), 'buyer-gallery/' . $form_state['unit_id'] . '/' . $image_node->field_customer_reference[LANGUAGE_NONE][0]['target_id'] . '/' . $image_nid, array('html' => TRUE)) . '</span>';
+    }
+    else{
+      $params['body'][] = '<span style="text-decoration: none;">' . l(t('Click here to view my entire gallery'), 'progress-gallery/' . $form_state['unit_id'] . '/' . $image_nid, array('html' => TRUE)) . '</span>';
+    }
+  }
+
+  drupal_mail('brookfield_gallery', 'share_photos', $to, user_preferred_language($account), $params, $account->mail);
+}
+
+function brookfield_gallery_mail($key, &$message, $params) {
+  switch ($key) {
+    case 'share_photos':
+      $message['subject'] = $params['subject'];
+      $message['body'] = $params['body'];
+      break;
+  }
+}
+
+function brookfield_gallery_form_brookfield_gallery_email_photo_form_alter(&$form, &$form_state, $form_id) {
+  $form['#after_build'][] = 'brookfield_gallery_email_photo_form_after_build';
+}
+
+function brookfield_gallery_email_photo_form_after_build($form) {
+  $form['body']['format']['#access'] = FALSE;
+  return $form;
+}
+
+/**
+ * Implements hook_node_presave().
+ */
+function brookfield_gallery_node_presave($node) {
+  if ($node->type === 'construction_gallery_image' && !empty($node->field_gallery_image[LANGUAGE_NONE]) && empty($node->original->field_image_original_date[LANGUAGE_NONE][0]['value'])) {
+
+    if (!empty($node->field_gallery_image[LANGUAGE_NONE][0]['field_image_original_date'][LANGUAGE_NONE][0]['value'])) {
+      $timestamp = $node->field_gallery_image[LANGUAGE_NONE][0]['field_image_original_date'][LANGUAGE_NONE][0]['value'];
+    }
+    else {
+      $file = file_load($node->field_gallery_image[LANGUAGE_NONE][0]['fid']);
+      $timestamp = $file->field_image_original_date[LANGUAGE_NONE][0]['value'];
+    }
+
+    if (!empty($timestamp)) {
+      $node->field_image_original_date[LANGUAGE_NONE][0]['value'] = $timestamp;
+    }
+  }
+
+  // Set the customer reference on a construction gallery image if not present.
+  if ($node->type === 'construction_gallery_image' && empty($node->field_customer_reference[LANGUAGE_NONE])) {
+    $nwrapper = entity_metadata_wrapper('node', $node);
+    $terms = taxonomy_get_term_by_name('Home Buyer', 'unit_construction_phase');
+    $term = reset($terms);
+    if ($nwrapper->field_gallery_phase_ref->value() == $term) {
+      $lot = $nwrapper->field_lot_reference->value();
+      $nwrapper->field_customer_reference->set($lot->field_customer_reference[LANGUAGE_NONE][0]['target_id']);
+    }
+  }
+}

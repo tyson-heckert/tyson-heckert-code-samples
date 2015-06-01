@@ -1,0 +1,593 @@
+<?php
+/**
+ * @file
+ * Defines functionality for the metagenics_custom_session module.
+ */
+
+/**
+ * Implements hook_user_logout().
+ */
+function metagenics_custom_session_user_logout($account) {
+  // In the event a user has an unlock cookie.
+  $current_cookie_params = session_get_cookie_params();
+  setcookie('practitioner[uid]', '', 1, '/', $current_cookie_params['domain'], FALSE, FALSE);
+  setcookie('practitioner[unlock_code]', '', 1, '/', $current_cookie_params['domain'], FALSE, FALSE);
+}
+
+/**
+ * Implements hook_user_login().
+ *
+ * If you're wondering why your other hook_login functions aren't working, this
+ * is it. drupal_goto seems to be the only way to redirect to a practitioner subdomain.
+ */
+function metagenics_custom_session_user_login(&$edit, $account) {
+
+  $_SESSION['edu-menu'] = user_has_practitioner_role($account->roles) ? TRUE : FALSE;
+
+  $user_obj = user_load($account->uid);
+
+  if (isset($_COOKIE['practitioner'])) {
+    $prac_id = $_COOKIE['practitioner']['uid'];
+    $prac_code = $_COOKIE['practitioner']['unlock_code'];
+
+    // Get rid of the cookie
+    $currentCookieParams = session_get_cookie_params();
+    setcookie('practitioner[uid]', '', 1, '/', $currentCookieParams['domain'], FALSE, FALSE);
+    setcookie('practitioner[unlock_code]', '', 1, '/', $currentCookieParams['domain'], FALSE, FALSE);
+  }
+
+  // Try to unlock the patient account if they have the cookie.
+  $patient_roles = array_intersect(array('patient', 'unlocked patient'), $user_obj->roles);
+  if (!empty($patient_roles)) {
+
+    // Determind if the first time user popup should show.
+    // This was taken from the hook_user_login in the metagenics_discount module
+    // because it won't fire after our drupal_goto here.
+    metagenics_discount_first_user_pop_check($account);
+
+    if(empty($user_obj->field_assigned_practitioner['und'][0]['target_id']) || empty($user_obj->field_medical_food_unlock_code['und'][0]['value'])){
+      if (!empty($prac_id) && empty($user_obj->field_assigned_practitioner['und'][0]['target_id'])) {
+        $user_obj->field_assigned_practitioner['und'][0]['target_id'] = $prac_id;
+      }
+      if (!empty($prac_code) && empty($user_obj->field_medical_food_unlock_code['und'][0]['value'])) {
+        $user_obj->field_medical_food_unlock_code['und'][0]['value'] = $prac_code;
+        $user_obj->roles[20] = 'unlocked patient';
+      }
+
+      user_save($user_obj);
+    }
+
+    // Add practitioner domain if possible
+    if (!empty($user_obj->field_assigned_practitioner['und'][0]['target_id']) && in_array('patient', $user_obj->roles) && isset($_POST['form_id']) && ($_POST['form_id'] == 'user_login' || $_POST['form_id'] == 'user_profile_form') && arg(0) != 'checkout') {
+
+      $destination_url = metagenics_custom_session_domain_destination($user_obj);
+      drupal_goto($destination_url);
+    }
+  }
+}
+
+
+/**
+ * Set the practitoner code if visiting from a vanity url.
+ */
+function metagenics_custom_session_init() {
+
+  if(user_is_logged_in()){
+    return;
+  }
+
+  global $base_url;
+
+  $vanity_code = get_vanity_code();
+
+  // No vanity, we're on metagenics.
+  if (!$vanity_code) {
+    // Clear the store name session, metagenics.com/store isn't anything.
+    if (isset($_SESSION['store_name'])) {
+      unset($_SESSION['store_name']);
+    }
+    return;
+  }
+
+  // Unlock the site for the user visiting this vanity.
+  if (!isset($_COOKIE['practitioner']['unlock_code']) && arg(0) != 'unlock-site' || (isset($_COOKIE['practitioner']['unlock_code']) && $_COOKIE['practitioner']['unlock_code'] != $vanity_code)) {
+    if ($prac_id = metagenics_user_get_practitioner_uid_from_vanity($vanity_code)) {
+      $practitioner = user_load($prac_id);
+
+      // Set the practitioner cookies.
+      metagenics_custom_session_set_practitioner_cookie('uid', $prac_id);
+      metagenics_custom_session_set_practitioner_cookie('unlock_code', $practitioner->field_merchant_unlock_code[LANGUAGE_NONE][0]['value']);
+
+      // Check if the user is logged in and not unlocked, so we can assign them
+      // their practitioner.
+      global $user;
+      if (user_is_logged_in() && (in_array('patient', $user->roles) && !in_array('unlocked patient', $user->roles))) {
+        $account = user_load($user->uid);
+        metagenics_user_assign_practitioner($account, $practitioner);
+      }
+    }
+    else {
+      // If no practitioner, invalid url, do nothing but display a message.
+      if (drupal_is_front_page()) {
+        drupal_set_message(t('This domain is not a valid practitioner domain. You will remain on the metagenics.com main site.'));
+        return;
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_preprocess_page().
+ */
+function metagenics_custom_session_preprocess_page(&$vars) {
+  $vanity_code = get_vanity_code();
+
+  $prac_id = NULL;
+  if (drupal_is_front_page()) {
+    $prac_id = db_query("SELECT entity_id FROM field_data_field_vanity_url WHERE LOWER(field_vanity_url_value) = :ucode LIMIT 1", array(':ucode' => strtolower($vanity_code)))->fetchField();
+
+    // If this is a valid vanity url attached to a practitioner,
+    // try and redirect to his store.
+    if ($prac_id != NULL) {
+      $store_id = get_practitioner_store_id($prac_id);
+      if ($store_id != NULL) {
+        drupal_goto('store');
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function metagenics_custom_session_menu() {
+  $items['unlock-code'] = array(
+    'title' => 'Unlock Code',
+    'description' => 'Unlock the site using a practiioner code.',
+    'page callback' => 'unlock_code',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['invalid-unlock-code'] = array(
+    'title' => 'Invalid Unlock Code',
+    'description' => 'Enter a new unlock code or redirect to main site home',
+    'page callback' => 'invalid_unlock_code',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['unlock-site'] = array(
+    'title' => 'Unlock Site',
+    'description' => 'Unlock the site with a valid subdomain',
+    'page callback' => 'unlock_site',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Returns invalid_unlock_code theme.
+ */
+function metagenics_custom_session_page() {
+
+  return theme('invalid_unlock_code');
+}
+
+/**
+ * Implements hook_theme().
+ */
+function metagenics_custom_session_theme($existing, $type, $theme, $path) {
+  global $theme;
+  global $theme_path;
+
+  return array('invalid_unlock_code' => array('template' => 'invalid_unlock_code'));
+}
+
+/**
+ * Page callback to unlock the site to purchase products.
+ */
+function unlock_site($code = NULL) {
+  global $base_url;
+
+  // If you're unlocking the site, you're a patient so you don't need the
+  // practitioner menu anymore.
+  unset($_SESSION['edu-menu']);
+
+  // Unlock the site using the provided code.
+  if (!empty($code)) {
+    // Grab the practitioner's id.
+    $pract_uid = metagenics_user_get_practitioner_uid_from_code($code);
+
+    if ($pract_uid) {
+      metagenics_custom_session_set_practitioner_cookie('uid', $pract_uid);
+      metagenics_custom_session_set_practitioner_cookie('unlock_code', $code);
+    }
+  }
+  // If no code provided, look for one in the query parameters.
+  else {
+    $vanity_code = get_vanity_code();
+    $destination_url = $_GET['destination'] ? $_GET['destination'] : $base_url;
+    $store_id = get_practitioner_store_id($_GET['prac_id']);
+
+    // Send user to the practitioner url if not on a product page.
+    // This code will run again at that time and give them the cookie and send
+    // them to the store.
+    // Don't do this on vanity domains or you'll get sucked into an infinite
+    // loop of doom.
+    if (!empty($store_id) && strpos($destination_url, 'products') === FALSE && strpos($destination_url, 'lifestyle-medicine-programs') === FALSE && strpos($destination_url, 'medical-foods') === FALSE && !$vanity_code) {
+
+      $destination_url = 'http://' . $_GET['prac_code'] . '.metagenics.com';
+      $_GET['destination'] = $destination_url;
+
+      $store = node_load($store_id);
+      $_SESSION['store_name'] = $store->field_storefront_vanity_title['und'][0]['value'];
+      drupal_goto($destination_url, array('external' => TRUE));
+    }
+
+    // If the practitioner has a store, we're replacing the block text about him
+    // with the store title.
+    if ($destination_url == 'store' && !isset($_SESSION['store_name']) && !empty($store_id)) {
+      $store = node_load($store_id);
+      $_SESSION['store_name'] = $store->field_storefront_vanity_title['und'][0]['value'];
+    }
+
+    // Grab the practitioner's id.
+    $pract_uid = metagenics_user_get_practitioner_uid_from_code($_GET['prac_code']);
+
+    // Set the unlock cookie.
+    metagenics_custom_session_set_practitioner_cookie('uid', $pract_uid);
+    metagenics_custom_session_set_practitioner_cookie('unlock_code', $_GET['prac_code']);
+
+    // Add practitioner subdomain.
+    global $cookie_domain;
+    unset($_GET['destination']);
+    $destination_url = 'http://' . $_GET['prac_code'] . $cookie_domain . '/' . $destination_url;
+
+    drupal_goto($destination_url);
+  }
+}
+
+/**
+ * Page callback to verify unlock code.
+ */
+function unlock_code() {
+  $code = $_POST['unlock-code'];
+  if ($pract_id = metagenics_user_get_practitioner_uid_from_code($code)) {
+    global $user;
+    // If not an anonymous user, try to add the practitioner and code to their
+    // profile.
+    if ($user->uid != 0) {
+      $user_obj = user_load($user->uid);
+      if (in_array('patient', array_values($user->roles)) && empty($user_obj->field_medical_food_unlock_code)) {
+        $edit['field_assigned_practitioner']['und'][0]['target_id'] = $pract_id;
+        $edit['field_medical_food_unlock_code']['und'][0]['value'] = $code;
+        $edit['roles'] = $user_obj->roles;
+        $edit['roles'][20] = 'unlocked patient';
+        user_save($user_obj, $edit);
+      }
+
+      $_SESSION['metagenics']['discount_first_user_pop'] = TRUE;
+      drupal_goto($_POST['destination']);
+    }
+    // If anonymous, give them the cookie.
+    else {
+      drupal_goto('unlock-site', array(
+        'query' => array(
+          'prac_code' => $code,
+          'prac_id' => $pract_id,
+          'destination' => $_POST['destination'],
+        )
+      ));
+    }
+  }
+  else {
+    global $base_url;
+    drupal_goto($base_url . '?invalidPractitionerCode=true');
+  }
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function metagenics_custom_session_block_info() {
+  $blocks = array();
+
+  $blocks['meta-prac-bar'] = array(
+    'info' => t('Patient Assigned Practitioner bar'),
+    'cache' => DRUPAL_NO_CACHE,
+    'visibility' => BLOCK_VISIBILITY_PHP,
+    'pages' => '',
+  );
+
+  $blocks['meta-unlock-text'] = array(
+    'info' => t('Unlock Bar Middle'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+
+  $blocks['meta-unlock-product'] = array(
+    'info' => t('Unlock Bar Product Page'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function metagenics_custom_session_block_view($delta = '') {
+  global $language;
+  global $user;
+
+  $block = array();
+
+  $field_first_name = NULL;
+  $field_last_name = NULL;
+  $assign_pract_uid = NULL;
+
+  switch ($delta) {
+
+    case 'meta-prac-bar':
+      if (user_is_logged_in()) {
+        $output = '<div class="user-info">
+          &gt; ' . t('Welcome') . ', <span class="welcome-name">' . $user->name . '</span>
+        </div>';
+      }
+
+      // Metagenics requested masquerade information replace practitioner
+      // information when masquerading.
+      if (isset($_SESSION['masquerading'])) {
+
+        $user_full = user_load($user->uid);
+
+        if (!empty($user_full->field_first_name) && !empty($user_full->field_last_name)) {
+          $name = $user_full->field_first_name['und'][0]['value'] . ' ' . $user_full->field_last_name['und'][0]['value'];
+        }
+        else {
+          $name = $user_full->name;
+        }
+
+        $output .= '<div class="pract-info">';
+
+        if ($user->uid > 0) {
+          $markup_value = t('Logged in as') . ' ' . l($name, 'user/' . $user->uid);
+        }
+        else {
+          $markup_value = t('Logged in as %anonymous.', array('%anonymous' => variable_get('anonymous', t('Anonymous'))));
+        }
+
+        $quick_switch_link = l(t('Switch back'), 'masquerade/unswitch', array(
+          'attributes' => array('class' => array('switch-back')),
+          'query' => array('token' => drupal_get_token('masquerade/unswitch')),
+          ));
+        $markup_value .= '  ' . $quick_switch_link;
+
+        $output .= $markup_value;
+
+        $output .= '</div>';
+      }
+      else {
+        $account = user_load($user->uid);
+
+        if (!empty($account->field_assigned_practitioner['und'][0]['target_id'])) {
+          $assign_pract_uid = $account->field_assigned_practitioner['und'][0]['target_id'];
+        }
+        elseif (isset($_COOKIE['practitioner']['uid'])) {
+          $assign_pract_uid = $_COOKIE['practitioner']['uid'];
+        }
+
+        if ($assign_pract_uid) {
+          $output = !empty($output) ? $output : '';
+          $output .= '<div class="pract-info">';
+
+          $field_first_name = db_query("SELECT field_first_name_value FROM field_data_field_first_name ffn WHERE entity_id = :pract_uid", array(':pract_uid' => $assign_pract_uid))->fetchField();
+          $field_last_name = db_query("SELECT field_last_name_value FROM field_data_field_last_name ffn WHERE entity_id = :pract_uid", array(':pract_uid' => $assign_pract_uid))->fetchField();
+          if ($field_first_name) {
+            $output .= t('About') . ' <a href="/find-a-practitioner/practitioner-details?practitioner-finder=' . $assign_pract_uid . '">' .  $field_first_name . ' ' . $field_last_name . '</a>';
+          }
+
+          $output .= '</div>';
+        }
+      }
+
+      if (!empty($output)) {
+        $block['content'] = !empty($output) ? $output : '<div></div>';
+      }
+      break;
+
+    case 'meta-unlock-text':
+      if (!user_has_practitioner_role($user->roles) && !in_array('administrator', $user->roles) && !in_array('meta csr', $user->roles) && empty($_SESSION['edu-menu'])) {
+        if ((!user_is_logged_in() && empty($_COOKIE['practitioner'])) || (user_is_logged_in() && !in_array('unlocked patient', $user->roles))) {
+          $form = drupal_get_form('metagenics_user_unlock_code_middle_form');
+          $block['content'] = '<div class="unlock-middle-form">' . render($form) . '</div>';
+        }
+      }
+      break;
+
+    case 'meta-unlock-product':
+      if (!user_is_logged_in() && !isset($_COOKIE['practitioner']['unlock_code'])) {
+        $form = drupal_get_form('metagenics_user_unlock_code_form');
+        $block['content'] .= '<div class="unlock-middle-form-product">' . render($form) . '</div>';
+      }
+      break;
+  }
+
+  return $block;
+}
+
+/**
+ * Implements hook_block_configure().
+ */
+function metagenics_custom_session_block_configure($delta = '') {
+  $form = array();
+
+  switch ($delta) {
+    case 'meta-unlock-text':
+      // Create tabs with text fields for each translation.
+      $form['unlock-text'] = array(
+        '#type' => 'textarea',
+        '#title' => t('Unlock help text'),
+        '#size' => 100,
+        '#required' => TRUE,
+        '#default_value' => metagenics_custom_message_get_message_text('popout', 'unlock_box'),
+      );
+      break;
+
+    case 'meta-unlock-product':
+      // Create tabs with text fields for each translation.
+      $form['unlock-text-product'] = array(
+        '#type' => 'textarea',
+        '#title' => t('Unlock help text'),
+        '#size' => 100,
+        '#required' => TRUE,
+        '#default_value' => variable_get('metagenics_unlock_help_text_product_variable'),
+      );
+      break;
+  }
+
+  return $form;
+}
+
+/**
+ * Implements hook_block_save().
+ */
+function metagenics_custom_session_block_save($delta = '', $edit = array()) {
+  switch ($delta) {
+    case 'meta-unlock-text':
+      // Saving the text fields.
+      if (!empty($edit['unlock-text'])) {
+        metagenics_custom_message_save_message_text('popout', 'unlock_box', $edit['unlock-text'], NULL, 'en-us');
+      }
+      break;
+
+    case 'meta-unlock-product':
+      // Saving the text fields.
+      variable_set('metagenics_unlock_help_text_product_variable', $edit['unlock-text-product']);
+      break;
+  }
+}
+
+/**
+ * Implements hook_metagenics_custom_messages().
+ */
+function metagenics_custom_session_metagenics_messages() {
+
+  // $groups =  array();
+  // $groups['popout'] = array(
+  //   'title' => t('Popout Messages'),
+  //   'description' => t('Messages for popout tool tips on unlock boxes and other.')
+  // );
+
+  $messages = array();
+
+  $messages['popout']['unlock_box'] = array(
+    'title' => t('Unlock Box Popout Message'),
+    'description' => t('Enter the Unlock Help Message'),
+    'message' => 'To purchase from your practitioner, you need a practitioner code',
+    'format' => 'plain_text',
+
+  );
+
+  return array(
+  // 'groups' => $groups,
+    'messages' => $messages,
+  );
+}
+
+/**
+ * Helper function to get the practitioner vanity code.
+ */
+function get_vanity_code() {
+
+  $vanity_code = NULL;
+  $url_code = explode(".", $_SERVER['HTTP_HOST']);
+
+  if (metagenics_general_current_domain_is_valid()) {
+    $reserved_subs = metagenics_general_reserved_subdomains();
+    if (!in_array($url_code[0], $reserved_subs)) {
+      $vanity_code = $url_code[0];
+    }
+  }
+
+  return $vanity_code;
+}
+
+/**
+ * Helper function to get the practitioner store id.
+ */
+function get_practitioner_store_id($practitioner_id) {
+  $store_id = NULL;
+
+  if (db_table_exists('field_data_field_practitioner') && $practitioner_id != NULL) {
+    $store_id = db_query("SELECT nid FROM node INNER JOIN field_data_field_practitioner ON nid = entity_id WHERE field_practitioner_target_id = :uid", array(':uid' => $practitioner_id))->fetchField();
+  }
+
+  return $store_id;
+}
+
+/**
+ * Set metagenics practitioner cookies.
+ *
+ * @param string $key
+ *   The key to use for this cookie.
+ * @param string $data
+ *   The data that will be set for this cookie.
+ */
+function metagenics_custom_session_set_practitioner_cookie($key, $data) {
+  $expire = variable_get('meta_pract_cookie_expire', 0);
+  if (!is_numeric($expire)) {
+    $expire = strtotime('+' . $expire);
+  }
+
+  $cookie_params = session_get_cookie_params();
+
+  setcookie('practitioner[' . $key . ']', $data, $expire, '/', $cookie_params['domain'], FALSE, FALSE);
+  $_COOKIE['practitioner'][$key] = $data;
+}
+
+/**
+ * Implements hook_module_implements_alter().
+ */
+function metagenics_custom_session_module_implements_alter(&$implementations, $hook) {
+  if ($hook == 'user_login') {
+    $module = 'metagenics_custom_session';
+    $group = $implementations[$module];
+    unset($implementations[$module]);
+    $implementations[$module] = $group;
+  }
+}
+
+function metagenics_custom_session_domain_destination($account){
+
+  global $base_url;
+  $modified_base = $base_url;
+
+  if(in_array('patient', $account->roles)){
+    // Grab practitioner for use of his practitioner code (subdomain)
+    $practitioner = user_load($account->field_assigned_practitioner['und'][0]['target_id']);
+    $prac_code = $practitioner->field_merchant_unlock_code['und'][0]['value'];
+
+    global $cookie_domain;
+
+    // Set a modified base url based on the practitioner subdomain
+    $modified_base = 'http://' . $prac_code . $cookie_domain;
+  }
+
+  // Find out if we need to change language
+  $language = user_preferred_language($account);
+  $prefix = !empty($language->prefix) ? '/' . $language->prefix : '';
+
+  // Find out if there is already a destination we should be going to
+  $destination_url = !empty($_GET['destination']) ? $_GET['destination'] : 'account/' . $account->uid . '/dashboard';
+
+  // Unset the current destination to not mess with our redirect
+  unset($_GET['destination']);
+
+  // Set the real destination we want and go
+  $destination_url = $modified_base . $prefix . '/' . $destination_url;
+
+  return $destination_url;
+}

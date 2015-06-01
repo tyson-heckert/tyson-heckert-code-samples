@@ -1,0 +1,49 @@
+.recurring-order-link {
+  display: inline-block;
+}
+
+/** Queue page styles **/
+
+#edit-filter-queue .form-item{
+  float:left;
+  margin:10px;
+}
+
+#edit-filter-queue #edit-date-filters{
+  float:left;
+  clear:both;
+  margin-bottom:10px;
+  margin-top:0;
+  padding:0;
+  border:none;
+  width:100%;
+}
+
+#edit-filter-queue #edit-date-filters .fieldset-wrapper{
+  padding:0;
+}
+
+#edit-filter-queue #edit-date-filters .form-wrapper{
+  float:left;
+  margin-right:10px;
+}
+
+#edit-filter-queue #edit-date-filters .container-inline-date{
+  clear:none;
+  float:left;
+}
+
+#edit-filter-queue #edit-filter-submit,
+#edit-filter-queue #edit-filter-reset{
+  float:left;
+}
+
+#edit-export-queue-records{
+  background:url('/sites/all/themes/metagenics/images/export_feed_icon.png') center top no-repeat;
+  border:none;
+  text-indent:-99999px;
+  width: 68px;
+  height: 25px;
+  padding: 0;
+  margin: 0;
+}

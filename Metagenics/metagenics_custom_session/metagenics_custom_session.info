@@ -1,0 +1,7 @@
+name = Metagenics Custom Session
+description = Check for practitioner codes and allow anonomous checkout
+core = 7.x
+package = Other
+
+dependencies[] = metagenics_commerce
+dependencies[] = metagenics_custom_message

@@ -1,0 +1,18 @@
+<?php
+/**
+ * @file
+ * Contains install and update functions for Brookfield Salesforce module.
+ */
+
+/**
+ * Rename variables to match module naming conventions.
+ */
+function brookfield_salesforce_update_7000() {
+
+  $salesforce_pull_date = variable_get('salesforce_pull_date');
+  if (isset($salesforce_pull_date)) {
+    variable_set('brookfield_salesforce_pull_date', TRUE);
+    variable_del('salesforce_pull_date');
+  }
+
+}

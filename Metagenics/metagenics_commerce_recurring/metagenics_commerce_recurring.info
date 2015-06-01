@@ -1,0 +1,10 @@
+name = Metagenics Commerce Recurring
+description = Create a workflow for recurring orders.
+core = 7.x
+package = Metagenics Development
+
+dependencies[] = metagenics_commerce
+
+; Views Handlers
+files[] = views/handlers/metagenics_commerce_recurring_delete_handler.inc
+files[] = views/handlers/metagenics_commerce_recurring_edit_order.inc
