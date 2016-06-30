@@ -1,0 +1,261 @@
+{   "id": "http://brandprotection.corsearch.com/schema/Scan.json",
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "object",
+    "additionalProperties": true,
+    "title": "Scan Schema.",
+    "description": "Schema Description For Scan Object",
+    "properties": {
+        "_id": {
+            "type": "object",
+            "name": "_id"
+        },
+        "total_keywords_return" : {
+          "type":"integer",
+          "name":"total_keywords_return"
+        },
+        "account_id": {
+            "type": "object",
+            "name": "account_id"
+        },
+
+        "user_id": {
+            "type": "object",
+            "name": "user_id"
+        },
+        "name": {
+            "type": "string",
+            "minLength": 3,
+            "title": "Field storing the Search identifier.",
+            "description": "Name Of the Search  ",
+            "name": "name",
+            "intellisense":true,
+            "sortType":"dynamicTxtLowerCase"
+        },
+        "brand": {
+            "$ref": "#/definitions/Brand"
+        },
+        "trademark_keywords":{
+            "type":"array",
+            "items": {
+                "type": "string"
+            },
+            "name":"trademark_keywords",
+            "intellisense":true,
+            "sortType":"dynamicTxtLowerCase",
+            "name":"trademark_keywords"
+        },
+       "include_domains":{
+        "type":"array",
+        "items": {
+          "type": "string"
+
+        },
+        "name":"include_domains"
+      },
+      "exclude_domains":{
+        "type":"array",
+        "items": {
+          "type": "string"
+        },
+          "name":"exclude_domains"
+      },
+        "searchType": {
+            "type": "string",
+            "minLength": 5,
+            "description": "Search Type Describing how the search was formed",
+            "name": "searchType",
+            "default": "User Generated",
+            "enum": [
+                "User Generated","Reverse WHOIS","Uploaded List"
+            ],
+          "intellisense":true,
+          "sortType":"dynamicTxtLowerCase"
+        },
+        "tld_settings": {
+            "$ref":"#/definitions/TldSettings"
+        },
+        "last_scan_date": {
+            "type": "date",
+            "format":"date-time",
+            "pattern":"^([0-9]|0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
+        },
+        "next_scan_date": {
+            "type": "date",
+            "format":"date-time",
+            "pattern":"^([0-9]|0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
+
+        },
+        "scan_frequency": {
+            "type": "string",
+            "enum": ["Daily","Weekly","Bi-Weekly","Monthly"],
+            "sortType":"dynamicTxtLowerCase"
+
+        },
+        "scan_status": {
+            "type": "string",
+            "enum": ["Initiated","FilterResults","ReadyForReview"],
+            "intellisense":true,
+            "name":"scan_status",
+            "sortType":"dynamicTxtLowerCase"
+        },
+        "refresh_scan": {
+            "name": "refresh_scan",
+            "type":"string",
+            "default": false,
+            "sortType":"dynamicTxtLowerCase",
+            "enum": [
+                true,false
+            ]
+        },
+        "api_call": {
+            "type": "object",
+            "name": "api_call"
+        },
+        "last_action": {
+            "type": "string",
+            "enum":[]
+        },
+        "last_action_by": {
+
+            "type":"string",
+            "name":"last_action_by"
+        },
+        "last_action_date": {
+            "type": "string",
+            "format":"date-time",
+            "pattern":"^([0-9]|0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
+
+        },
+        "total_domains": {
+            "type": "integer",
+            "default": 0,
+            "name":"total_domains",
+            "sortType":"native"
+        },
+        "total_new": {
+            "type":"integer",
+            "default":0
+        },
+        "schedule_name": {
+          "type": "string",
+          "sortType":"dynamicTxtLowerCase",
+          "name":"schedule_name",
+          "enum":[]
+        },
+        "schedule_rate": {
+          "type": "string"
+        },
+        "schedule_start_date": {
+          "type": "string"
+        },
+        "schedule_start_date": {
+            "type": "date",
+            "format":"date-time",
+            "pattern":"^([0-9]|0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
+        },
+        "schedule_end_date": {
+            "type": "date",
+            "format":"date-time",
+            "pattern":"^([0-9]|0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
+        },
+        "status": {
+            "type": "string",
+            "enum":["ok","failed","in-process"],
+            "sortType":"dynamicTxtLowerCase",
+            "name":"status"
+        },
+        "created_at": {
+            "type": "date",
+            "format":"date-time",
+            "pattern":"^([0-9]|0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$",
+            "name":"created_at"
+        },
+
+        "updated_at": {
+            "type": "date",
+            "format":"date-time",
+            "pattern":"^([0-9]|0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
+
+        },
+        "deleted_at": {
+            "type": "date",
+            "format":"date-time",
+            "pattern":"^([0-9]|0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
+        }
+    },
+    "required": [
+        "_id",
+        "customer_id",
+        "user_id",
+        "name",
+        "brand_id",
+        "trademark_keywords",
+        "type",
+        "tld_settings",
+        "typo_settings",
+        "last_scan_date",
+        "next_scan_date",
+        "scan_frequency",
+        "scan_status",
+        "refresh_scan",
+        "last_action",
+        "last_action_by",
+        "last_action_date",
+        "total_domains",
+        "total_new",
+        "triage_data",
+        "schedule_rate",
+        "schedule_start_date",
+        "schedule_end_date",
+        "status",
+        "created_at",
+        "updated_at",
+        "deleted_at"
+    ],
+
+    "definitions":{
+        "TldSettings":{
+            "type":"object",
+            "properties":{
+                "gtld":{"$ref":"#/definitions/TypoMethod","required":false},
+                "cctld":{"$ref":"#/definitions/CCTld","required":false},
+                "newtld":{"$ref":"#/definitions/TypoMethod","required":false}
+            }
+        },
+        "TypoMethod":{
+            "type":"array",
+            "items":{
+                "enum":["Identical","Contains","Misspelling","Sounds Like"]
+            },
+            "Region":{
+                "type":"array",
+                "items":{
+                  "enum": ["Africa","Antartica","Asia","Central America","Europe","North America","Oceania","South america"]
+                }
+            }
+        },
+        "CCTld":{
+            "type":"object",
+            "properties":{
+                "typoMethod":{"$ref":"#/definitions/TypoMethod"},
+                "region":{"$ref":"#/definitions/TypoMethod/Region"}
+
+            }
+
+        },
+        "Brand": {
+            "type": "object",
+            "properties":{
+                "_id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "name":"brand.name",
+                    "intellisense":true,
+                    "sortType":"dynamicTxtLowerCase"
+                }
+            }
+        }
+    }
+}

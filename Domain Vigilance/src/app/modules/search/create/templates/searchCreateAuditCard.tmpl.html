@@ -1,0 +1,16 @@
+<div class="wk-field-item" flex>
+    <form name="manualListForm" ng-submit="uploadListModal()" novalidate>
+        <div class="wk-field-header">
+            <label>Domain Audit</label>
+        </div>
+        <div class="wk-field-item" cs-validation-on="manualListForm" ng-show="formData.domains.length <= 0" style="margin-bottom:0;">
+            <input class="block" type="text" name="textList" ng-model="textList" placeholder="* Enter domain(s), or upload Excel" required />
+            <!--<div class="wk-field-message">* Required</div>-->
+            <div class="wk-field-error" ng-if="domainValidationError">{{ domainValidationError }}</div>
+        </div>
+        <!--<div class="md-caption">Separate each with a comma. You can also paste a list inside the field.</div>-->
+
+        <div cs-upload-audit valid-files="validFiles" show-wk-text-input="true" form-data="formData" ng-show="!manualListForm.textList.$modelValue"></div>
+    </form>
+</div>
+<button class="wk-button block" ng-click="uploadListModal()" ng-disabled="manualListForm.$submitted && manualListForm.textList.$invalid && manualListForm.textList.$touched && !validFiles.length">Next</button>

@@ -1,0 +1,195 @@
+
+    <form name="form.newEntityForm" ng-submit="submit()" novalidate ng-show="currentStep==1">
+        <div style="min-width:500px;" class="modal-body-white" >
+
+
+            <div layout="column" style="margin-top: 5px">
+                <div layout="row">
+                    <div class="wk-field-item" flex cs-validation-on="form.newEntityForm" style="flex:0.9">
+                        <div class="wk-field-header">
+                            <label>* Name this Audit</label>
+                        </div>
+                        <input class="block cs-auto-focus" type="text" ng-model="search.name" placeholder="Enter audit name (required)" name="searchName" required>
+                        <div class="wk-field-error"></div>
+                    </div>
+                    <div class="wk-field-item" flex></div>
+                </div>
+
+                <div layout="row">
+                    <div class="wk-field-item" flex style="flex:0.9">
+                            <div class="wk-field-header">
+                                <label>* Client or Brand</label>
+                            </div>
+                            <div cs-brand ng-model="search.brand" name="brand"></div>
+                            <div class="wk-field-error"></div>
+                    </div>
+                    <div class="wk-field-item" flex style="flex:1">
+
+                        <div class="wk-field-header">
+                            <label>Billing Code</label>
+                        </div>
+                        <input class="block" type="text" ng-model="search.referenceCode" placeholder="Enter billing code (optional)" name="referenceCode">
+                        <div class="wk-field-error"></div>
+
+                    </div>
+
+                </div>
+
+
+                <div layout="row">
+                    <div class="wk-field-header">
+                        <label><strong>Order:</strong></label>
+                    </div>
+                </div>
+
+                <div layout="row" style="font-size: 1.3rem; padding-top: 10px;">
+                    <div class="wk-field-item" flex style="flex:0.9;border-bottom: solid 1px #DADADA;padding: 0px;padding-bottom:5px;margin: 0;">
+                        <label>Number of domains:</label>
+                    </div>
+
+                    <div class="wk-field-item" flex style="flex:.5;border-bottom: solid 1px #DADADA;padding: 0px;padding-bottom:5px;margin: 0;">
+                        <label>{{domainCount}} domains</label>
+                        <!--<div cs-brand ng-model="search.brand" name="brand"></div>-->
+                    </div>
+                    <div class="wk-field-item" flex style="flex:0.9;"></div>
+                </div>
+
+                <div layout="row" style="font-size: 1.3rem;padding-top: 10px;">
+                    <div class="wk-field-item" flex style="flex:0.9;border-bottom: solid 1px #DADADA;padding: 0px;padding-bottom:5px;margin: 0;">
+                        <label>Cost per domain:</label>
+                    </div>
+
+                    <div class="wk-field-item" flex style="flex:.5;border-bottom: solid 1px #DADADA;padding: 0px;padding-bottom:5px;margin: 0;">
+                        <label>25 cents</label>
+                        <!--<div cs-brand ng-model="search.brand" name="brand"></div>-->
+                    </div>
+                    <div class="wk-field-item" flex style="flex:0.9;"></div>
+                </div>
+
+                <div layout="row" style="font-size: 1.3rem;padding-top: 10px;margin-bottom:15px;">
+                    <div class="wk-field-item" flex style="flex:1.2;padding: 0px;margin: 0;"></div>
+
+                    <div class="wk-field-item" flex style="flex:1;padding: 0px;margin: 0;">
+                        <label>TOTAL COST: {{domainTotalCost | currency }}</label>
+                        <!--<div cs-brand ng-model="search.brand" name="brand"></div>-->
+                    </div>
+                    <div class="wk-field-item" flex style="flex:0.9;"></div>
+                </div>
+
+            </div>
+
+            <div ng-if="errorMessage">
+                <div class="wk-field-error" style="visibility: visible;">{{errorMessage}}</div>
+            </div>
+
+
+
+
+
+        </div>
+
+
+        <div class="text-right">
+            <a class="wk-button button-secondary" ng-click="$parent.closeModal()">Cancel</a>
+            <button class="wk-button button-success" style="width: 150px" type="submit" ng-disabled="form.newEntityForm.searchName.$invalid || form.newEntityForm.brand.$invalid || submitLoader">Continue</button>
+            <div ng-if="submitLoader">
+                <i class="zmdi zmdi-spinner zmdi-hc-spin"></i>
+            </div>
+        </div>
+
+    </form>
+
+    <div ng-show="currentStep==2">
+
+        <div layout="column" style="margin-top: 5px; border:solid 1px #222;border: solid 1px rgba(179, 179, 179, 0.5);padding: 10px;background-color: rgba(128, 128, 128, 0.04);">
+
+            <div layout="row">
+                <div class="wk-field-header" flex style="flex:0.9">
+                    <label>Thank you very much for making this purchase. Please review your order.</label>
+                </div>
+            </div>
+
+            <br />
+
+            <div layout="row">
+
+                <div class="wk-field-header">
+                    <label><b>What:</b></label>
+                </div>
+                <div class="wk-field-header" style="padding-left: 5px;">
+                    <label>Domain Audit</label>
+                </div>
+            </div>
+
+            <div layout="row">
+
+                <div class="wk-field-header">
+                    <label><b>Client:</b></label>
+                </div>
+                <div class="wk-field-header" style="padding-left: 5px;">
+                    <label>{{search.brand.name}}</label>
+                </div>
+            </div>
+
+            <div layout="row">
+
+                <div class="wk-field-header">
+                    <label><b>Billing Code:</b></label>
+                </div>
+                <div class="wk-field-header" style="padding-left: 5px;">
+                    <label>{{refCode}}</label>
+                </div>
+            </div>
+
+            <br />
+
+            <div layout="row">
+                <div class="wk-field-header" style="font-weight:bold !important;">
+                    <label>Order:</label>
+                </div>
+            </div>
+
+            <div layout="row" style="font-size: 1.3rem; padding-top: 10px;">
+                <div class="wk-field-item" flex style="flex:0.9;border-bottom: solid 1px #DADADA;padding: 0px;padding-bottom:5px;margin: 0;">
+                    <label>Number of domains:</label>
+                </div>
+
+                <div class="wk-field-item" flex style="flex:.5;border-bottom: solid 1px #DADADA;padding: 0px;padding-bottom:5px;margin: 0;">
+                    <label>{{domainCount}} domains</label>
+                    <!--<div cs-brand ng-model="search.brand" name="brand"></div>-->
+                </div>
+                <div class="wk-field-item" flex style="flex:0.9;"></div>
+            </div>
+
+            <div layout="row" style="font-size: 1.3rem;padding-top: 10px;">
+                <div class="wk-field-item" flex style="flex:0.9;border-bottom: solid 1px #DADADA;padding: 0px;padding-bottom:5px;margin: 0;">
+                    <label>Cost per domain:</label>
+                </div>
+
+                <div class="wk-field-item" flex style="flex:.5;border-bottom: solid 1px #DADADA;padding: 0px;padding-bottom:5px;margin: 0;">
+                    <label>25 cents</label>
+                    <!--<div cs-brand ng-model="search.brand" name="brand"></div>-->
+                </div>
+                <div class="wk-field-item" flex style="flex:0.9;"></div>
+            </div>
+
+            <div layout="row" style="font-size: 1.3rem;padding-top: 10px;">
+                <div class="wk-field-item" flex style="flex:0.9;padding: 0px;margin: 0;"></div>
+
+                <div class="wk-field-item" flex style="flex:.5;padding: 0px;margin: 0;">
+                    <label>TOTAL COST: {{domainTotalCost | currency }}</label>
+                </div>
+                <div class="wk-field-item" flex style="flex:0.9;"></div>
+            </div>
+
+        </div>
+
+        <div class="text-right">
+            <a class="wk-button button-secondary" ng-click="$parent.closeModal()">Cancel</a>
+            <a class="wk-button button-success" ng-click="close()">Continue</a>
+        </div>
+
+    </div>
+
+
+

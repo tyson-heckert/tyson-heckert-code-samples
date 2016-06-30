@@ -1,0 +1,131 @@
+<md-dialog aria-label="Reverse Whois Search"  ng-cloak>
+
+    <md-toolbar>
+        <div class="md-toolbar-tools">
+            <h2>Reverse WHOIS {{ search_domain }}</h2>
+            <span flex></span>
+            <md-button class="md-icon-button" ng-click="abort()">
+                <md-icon class="zmdi zmdi-close" aria-label="Close dialog"></md-icon>
+            </md-button>
+        </div>
+    </md-toolbar>
+
+    <md-dialog-content style="min-height:330px;">
+        <div class="reverse-whois-dialog" ng-form >
+
+            <form name="reverseWhoisDialogForm" ng-submit="submit()" novalidate style="width: 100%">
+                <section layout="row">
+                    <div flex="50" class="padding-10 reverse-whois-content">
+                        <p style="margin:0;margin-bottom:10px;"><strong>Search Terms</strong></p>
+                        <ol>
+                            <li ng-repeat="reverseWhois_config in reverseWhois_configs track by $index">
+                                <div ng-show="!$first">
+                                    <hr style="margin-top:10px;color: #007ac3;height: 1px;border: 0;border-top: 1px solid #007ac3;padding: 0; ">
+                                    <div style="border:1px solid #007ac3;position:relative;top:-22px;color:#fff;background:#007ac3;width:20px;padding:0 10px;margin: 0 10px;">
+                                        OR
+                                    </div>
+                                </div>
+
+
+                                <div class="additional-reversewhois-term" ng-class="{'first-whois-term': $first}" style="position:relative;">
+                                    <div class="" style="text-align:right;position:absolute;top:-10px;left: 415px;border:1px solid #cecece;background:#fff" ng-if="!$first">
+                                        <span style="padding:5px;" ng-click="removeSearchTerm($index)">
+                                            <i class="zmdi zmdi-close cursor-pointer"></i>
+                                        </span>
+                                    </div>
+
+                                    <div layout="row">
+                                        <div class="wk-field-item" flex cs-validation-on="reverseWhoisDialogForm">
+                                            <div class="wk-field-header">
+                                                <label>{{ reverseWhois_config.field_name }}</label>
+                                            </div>
+                                            <div cs-reverse-whois-field ng-model="reverseWhois_config.term" name="reverseWhois_config[{{$index}}]" required></div>
+                                            <div class="wk-field-error"></div>
+                                        </div>
+                                        <div class="wk-field-item" style="min-width: 165px">
+                                            <div class="wk-field-header">
+                                                <label>Select Term</label>
+                                            </div>
+                                            <div class="wk-select-field">
+                                                <select ng-model="reverseWhois_config.field" ng-selected="reverseWhois_config.field" ng-change="updateReadableField($index)">
+                                                    <option ng-repeat="field in searchableFields" value="{{field.val}}">{{field.name}}</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="wk-field-item" flex ng-if="pricingEnabled" style="padding-top:35px;min-width:85px">
+                                            Cost: $250
+                                        </div>
+                                    </div>
+                                </div>
+                            </li>
+                        </ol>
+
+
+                        <div class="text-right" style="position:relative;margin-top:30px;">
+                            <hr style="color:#cecece">
+                            <span style="text-align:right; margin-top: 20px;cursor:pointer; position:relative;top:-20px;right:20px;padding:5px;background:#F6F6F6;border:1px solid #cecece;" ng-click="addSearchTerm()" ng-if="reverseWhois_configs.length < 5">
+                                + Expand your search
+                            </span>
+                        </div>
+
+                    </div>
+
+                    <div flex="50" style="margin-left: 10px;max-height: 275px;" class="">
+                        <div class="reverse-whois-content padding-10">
+                            <p style="margin-top:0;"><strong>Search Information</strong></p>
+
+                            <div layout="row">
+                                <div class="wk-field-item" cs-validation-on="reverseWhoisDialogForm" flex style="flex:0.9">
+                                    <div class="wk-field-header">
+                                        <label>* Name this search</label>
+                                    </div>
+                                    <input class="block" type="text" ng-model="reverseWhois_config.search_name" placeholder="Enter search name (required)" name="reverseWhois_config_search_name" required>
+                                    <div class="wk-field-error"></div>
+
+                                </div>
+                                <div lass="wk-field-item" flex></div>
+                            </div>
+
+                            <div layout="row">
+                                <div flex class="wk-field-item" flex style="flex:0.9">
+                                    <div class="wk-field-header">
+                                        <label>* Client or Brand</label>
+                                    </div>
+                                    <div cs-brand ng-model="brand" name="brand" ></div>
+                                </div>
+
+                                <div class="wk-field-item" flex style="flex:1">
+                                    <div class="wk-field-header">
+                                        <label>Billing Code</label>
+                                    </div>
+                                    <input class="block" name="search_billing_code" ng-model="search_billing_code" placeholder="Enter billing code (optional)">
+                                    <div class="wk-field-error"></div>
+                                </div>
+                            </div>
+
+                            <div ng-if="errorMessage">
+                                    <div class="wk-field-error" style="visibility: visible;">{{errorMessage}}</div>
+                            </div>
+
+                            <div layout="row" layout-align="end end" ng-if="pricingEnabled">
+                                <div style="font-weight:bold;">TOTAL COST: ${{ reverseWhois_configs.length * 250 }}</div>
+                            </div>
+
+
+                        </div>
+                        <div layout="row" layout-align="end end">
+
+                            <div class="wk-button button-secondary" ng-click="abort()">Cancel</div>
+                            <button class="wk-button button-success" style="width: 150px" type="submit" ng-disabled="reverseWhoisDialogForm.$invalid || reverseWhoisDialogForm.$submitted">Continue</button>
+                        </div>
+                    </div>
+
+                </section>
+
+
+
+            </form>
+        </div>
+    </md-dialog-content>
+
+</md-dialog>

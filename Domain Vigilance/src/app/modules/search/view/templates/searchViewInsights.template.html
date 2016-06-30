@@ -1,0 +1,127 @@
+
+<div flex="33" layout="column">
+    <h3><span>Domain Commonalities</span></h3>
+    <div flex>
+        <md-tabs md-dynamic-height md-border-bottom>
+            <md-tab label="Registrants">
+                <md-content>
+                    <ul ng-show="insights['whois.registrant_name']">
+                        <li layout="row" style="outline:none;" ng-repeat="registrant in insights['whois.registrant_name']" ng-click="searchInsightFilter('whois.registrant_name',registrant._id['whois.registrant_name'])">
+                            <div flex style="flex:3">{{registrant._id['whois.registrant_name']}}</div>
+                            <div flex style="flex:1"></div>
+                            <div flex style="flex:0.5">{{registrant.count}}</div>
+                        </li>
+                    </ul>
+                    <div ng-show="!insights['whois.registrant_name']" style="margin:0 auto;text-align:center;">
+                        Loading...
+                    </div>
+                </md-content>
+            </md-tab>
+            <md-tab label="Email" ng-click="loadInsights(['whois.registrant_email'])">
+                <md-content>
+                    <ul ng-show="insights['whois.registrant_email']">
+                        <li layout="row" style="outline:none;" ng-repeat="registrant in insights['whois.registrant_email']" ng-click="searchInsightFilter('whois.registrant_email',registrant._id['whois.registrant_email'])">
+                            <div flex style="flex:3">{{registrant._id['whois.registrant_email']}}</div>
+                            <div flex style="flex:1"></div>
+                            <div flex style="flex:0.5">{{registrant.count}}</div>
+                        </li>
+                    </ul>
+                    <div ng-show="!insights['whois.registrant_email']" style="margin:0 auto;text-align:center;">
+                        Loading...
+                    </div>
+                </md-content>
+            </md-tab>
+            <md-tab label="Phone" ng-click="loadInsights(['whois.registrant_phone'])">
+                <md-content>
+                    <ul ng-show="insights['whois.registrant_phone']">
+                        <li layout="row" style="outline:none" ng-repeat="registrant in insights['whois.registrant_phone']" ng-click="searchInsightFilter('whois.registrant_phone',registrant._id['whois.registrant_phone'])">
+                            <div flex style="flex:3">{{registrant._id['whois.registrant_phone']}}</div>
+                            <div flex style="flex:1"></div>
+                            <div flex style="flex:0.5">{{registrant.count}}</div>
+                        </li>
+                    </ul>
+                    <div ng-show="!insights['whois.registrant_phone']" style="margin:0 auto;text-align:center;">
+                        Loading...
+                    </div>
+                </md-content>
+            </md-tab>
+            <md-tab label="IP" ng-click="loadInsights(['whois.ip'])">
+                <md-content>
+                    <ul ng-show="insights['whois.ip']">
+                        <li layout="row" style="outline:none" ng-repeat="registrant in insights['whois.ip']" ng-click="searchInsightFilter('whois.ip',registrant._id['whois.ip'])">
+                            <div flex style="flex:3">{{registrant._id['whois.ip'] || 'N/A'}}</div>
+                            <div flex style="flex:1"></div>
+                            <div flex style="flex:0.5">{{registrant.count}}</div>
+                        </li>
+                    </ul>
+                    <div ng-show="!insights['whois.ip']" style="margin:0 auto;text-align:center;">
+                        Loading...
+                    </div>
+                </md-content>
+            </md-tab>
+            <md-tab label="DNS" ng-click="loadInsights(['whois.dns'])">
+                <md-content>
+                    <ul ng-show="insights['whois.dns']">
+                        <li layout="row" style="outline:none" ng-repeat="registrant in insights['whois.dns']" ng-click="searchInsightFilter('whois.dns',registrant._id['whois.dns'])">
+                            <div flex style="flex:3">{{registrant._id['whois.dns']}}</div>
+                            <div flex style="flex:1"></div>
+                            <div flex style="flex:0.5">{{registrant.count}}</div>
+                        </li>
+                    </ul>
+                    <div ng-show="!insights['whois.ip']" style="margin:0 auto;text-align:center;">
+                        Loading...
+                    </div>
+                </md-content>
+            </md-tab>
+            <md-tab label="Create Date" ng-click="loadInsights(['whois.created_date'])">
+                <md-content>
+                    <ul ng-show="insights['whois.created_date']">
+                        <li layout="row" style="outline:none" ng-repeat="registrant in insights['whois.created_date']" ng-click="searchInsightFilter('whois.created_date',registrant._id['whois.created_date'])">
+                            <div flex style="flex:3">{{registrant._id['whois.created_date'] | date : 'MMM d, yyyy'}}</div>
+                            <div flex style="flex:1"></div>
+                            <div flex style="flex:0.5">{{registrant.count}}</div>
+                        </li>
+                    </ul>
+                    <div ng-show="!insights['whois.created_date']" style="margin:0 auto;text-align:center;">
+                        Loading...
+                    </div>
+                </md-content>
+            </md-tab>
+        </md-tabs>
+
+    </div>
+</div>
+<div flex="33" layout="column">
+    <h3><span>Expiring Domains</span></h3>
+    <div flex>
+        <ul ng-show="insights['expiring']">
+            <li layout="row" style="outline:none" ng-repeat="domain in insights['expiring']" ng-click="searchInsightFilter('name',domain.name)">
+                <div flex style="flex:2">{{domain.name}}</div>
+                <div flex style="flex:1"></div>
+                <div flex style="flex:1">{{domain.expires_date | date : 'MMM d, yyyy'}}</div>
+            </li>
+        </ul>
+        <div ng-show="!insights['expiring']" style="margin:0 auto;text-align:center;">
+            Loading...
+        </div>
+    </div>
+</div>
+<div flex="33" layout="column">
+    <h3><span>High Traffic Domains</span></h3>
+    <div flex>
+        <ul ng-show="insights['traffic']">
+            <li layout="row" style="outline:none" ng-repeat="domain in insights['traffic']" ng-click="searchInsightFilter('name',domain.name)">
+                <div flex style="flex:2">{{domain.name}}</div>
+                <div flex style="flex:1"></div>
+                <div flex style="flex:1">{{domain.traffic}}</div>
+            </li>
+        </ul>
+        <div ng-show="!insights['traffic']" style="margin:0 auto;text-align:center;">
+            Loading...
+        </div>
+        <div ng-show="insights['traffic'].length == 0">
+            No Domains
+        </div>
+    </div>
+</div>
+

@@ -1,0 +1,223 @@
+#admin-panel-content-view {
+  //max-width: 1320px;
+  //margin: auto;
+}
+.boxed-width {
+  width: 1320px;
+  max-width: 100%;
+  margin: auto;
+}
+md-card.boxed-width {
+  margin: 8px auto;
+}
+
+.csSmallSearchCard {
+
+  position: relative;
+  padding: 24px;
+  padding: 54px 24px 24px 24px;
+
+
+  //
+  //display: flex;
+  //justify-content: space-between;
+  //
+  //form {
+  //  display: flex;
+  //  flex-direction: column;
+  //}
+
+
+  .md-title {
+    font-weight: 800; font-size: 26px
+  }
+
+  .cs-custom-tooltip {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 24px;
+  }
+
+  .wk-button {
+    font-size: 20px;
+    max-width: 90%;
+    margin: 10px auto;
+    margin-top: 40px;
+  }
+
+  .cs-custom-tooltip__text {
+
+    font-size: 16px;
+    strong {
+      font-weight: 800;
+      font-size: 16px;
+    }
+    .cs-custom-tooltip__text__message {
+      //font-size: 16px;
+      font-size: 14px;
+      line-height: 20px;
+    }
+  }
+}
+
+
+md-card.md-white-wk-blue-accent-green-theme {
+  border: 1px solid #005b92;
+
+}
+
+#admin-panel-content-view {
+  background: transparent;
+}
+
+.wk-field-item input {
+  font-size: 12px !important;
+  margin:0 !important;
+  border-top:2px solid #838383 !important;
+}
+
+::-webkit-input-placeholder {
+  color: #474747;
+}
+
+:-moz-placeholder { /* Firefox 18- */
+  color: #474747;
+}
+
+::-moz-placeholder {  /* Firefox 19+ */
+  color: #474747;
+}
+
+:-ms-input-placeholder {
+  color: #474747;
+}
+
+// placeholder text focus changes
+input::-webkit-input-placeholder {
+  color: #474747;
+}
+input:focus::-webkit-input-placeholder {
+  color: #a3a3a3;
+}
+
+/* Firefox < 19 */
+input:-moz-placeholder {
+  color: #474747;
+}
+input:focus:-moz-placeholder {
+  color: #a3a3a3;
+}
+
+/* Firefox > 19 */
+input::-moz-placeholder {
+  color: #474747;
+}
+input:focus::-moz-placeholder {
+  color: #a3a3a3;
+}
+
+/* Internet Explorer 10 */
+input:-ms-input-placeholder {
+  color: #474747;
+}
+input:focus:-ms-input-placeholder {
+  color: #a3a3a3;
+}
+
+.single-domain-info__container {
+  p {
+    margin-bottom: 4px;
+    margin-top: 9px;
+  }
+}
+
+
+.wk-button {
+  &.secondary-button {
+    background-color: tint($color-grey, 50%);
+    &:hover {
+      background-color: tint($color-grey, 60%);
+    }
+  }
+  &.button-secondary {
+    background-color: tint($color-grey, 50%);
+    &:hover {
+      background-color: tint($color-grey, 60%);
+    }
+  }
+}
+
+
+
+// redoing the top bar cards
+.help-trigger-wrapper {
+
+  .js-help-hover-panel {
+    width: 314px !important;
+    height: 340px;
+    padding: 54px 24px 24px 24px !important;
+  }
+
+  .wk-field-header {
+    font-weight: 800;
+    font-size: 26px;
+    color: #454545;
+    label {
+      font-weight: 800 !important;
+      font-size: 26px;
+      color: #454545;
+    }
+  }
+
+  .wk-button {
+    width: 90% !important;
+    display: block;
+    margin: auto;
+    font-size: 18px;
+  }
+
+  .cs-custom-tooltip {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 24px;
+    * {
+      //font-size: 16px;
+      font-size: 14px;
+      line-height: 18px;
+      z-index: 1000;
+    }
+  }
+}
+
+// Global Button Font Size
+.wk-button {
+  //font-size: 18px !important;
+}
+.cs-custom-tooltip__text {
+  font-size: 14px;
+  line-height: 18px;
+  z-index: 1000;
+}
+
+
+.js-help-hover-panel {
+  border: 1px solid #005b92;
+  top: 41px !important;
+}
+
+
+// modal stuff
+
+md-toolbar.md-white-wk-blue-accent-green-theme:not(.md-menu-toolbar) {
+  background-color: #005b92;
+  min-height: 45px;
+  .md-toolbar-tools {
+    height: auto;
+  }
+}
+
+.md-tab {
+  border-right: 2px solid #bfbfbf;
+}

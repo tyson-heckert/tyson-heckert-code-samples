@@ -1,0 +1,446 @@
+<section layout="column" id="mainTriageScope">
+
+    <section layout="row">
+        <div flex>
+            <md-tabs id="viewMenu" md-selected="currentViewTab">
+                <md-tab md-on-select="openTab('table')" label="Table"></md-tab>
+                <md-tab md-on-select="openTab('gallery')" label="Gallery"></md-tab>
+                <md-tab md-on-select="openTab('details')" label="Details"></md-tab>
+                <md-tab md-on-select="openTab('archived')" label="Archived"></md-tab>
+                <!--<md-tab md-on-select="showClassificationInstructions()" label="Classification"></md-tab>-->
+
+
+                <md-tab md-on-select="openTab('settings')" label="Settings"></md-tab>
+            </md-tabs>
+        </div>
+        <!--<div>-->
+            <!--&lt;!&ndash;<span ng-click="showSearchsSettings()"  style="&ndash;&gt;-->
+                <!--&lt;!&ndash;color: rgba(0,0,0,0.54);&ndash;&gt;-->
+                <!--&lt;!&ndash;background-color: #ededed;&ndash;&gt;-->
+                <!--&lt;!&ndash;padding: 0 24px;&ndash;&gt;-->
+                <!--&lt;!&ndash;font-size: 14px;&ndash;&gt;-->
+                <!--&lt;!&ndash;text-align: center;&ndash;&gt;-->
+                <!--&lt;!&ndash;line-height: 24px;&ndash;&gt;-->
+                <!--&lt;!&ndash;transition: background-color 0.35s cubic-bezier(0.35, 0, 0.25, 1);&ndash;&gt;-->
+                <!--&lt;!&ndash;cursor: pointer;&ndash;&gt;-->
+                <!--&lt;!&ndash;white-space: nowrap;&ndash;&gt;-->
+                <!--&lt;!&ndash;position: relative;&ndash;&gt;-->
+                <!--&lt;!&ndash;text-transform: uppercase;&ndash;&gt;-->
+                <!--&lt;!&ndash;float: left;&ndash;&gt;-->
+                <!--&lt;!&ndash;font-weight: 500;&ndash;&gt;-->
+                <!--&lt;!&ndash;box-sizing: border-box;&ndash;&gt;-->
+                <!--&lt;!&ndash;overflow: hidden;&ndash;&gt;-->
+                <!--&lt;!&ndash;text-overflow: ellipsis;">&ndash;&gt;-->
+                    <!--&lt;!&ndash;Search Details</span>&ndash;&gt;-->
+            <!--<span modal-content directive-name="search-view-info-modal" modal-header="'Search Details'" padded-modal="true" assoc-data="scanData" style="-->
+                <!--color: rgba(0,0,0,0.54);-->
+                <!--background-color: #ededed;-->
+                <!--padding: 0 24px;-->
+                <!--font-size: 14px;-->
+                <!--text-align: center;-->
+                <!--line-height: 24px;-->
+                <!--transition: background-color 0.35s cubic-bezier(0.35, 0, 0.25, 1);-->
+                <!--cursor: pointer;-->
+                <!--white-space: nowrap;-->
+                <!--position: relative;-->
+                <!--text-transform: uppercase;-->
+                <!--float: left;-->
+                <!--font-weight: 500;-->
+                <!--box-sizing: border-box;-->
+                <!--overflow: hidden;-->
+                <!--text-overflow: ellipsis;"-->
+                    <!--Search Details</span>-->
+
+        <!--</div>-->
+
+        <!--<md-tabs id="viewMenuTwo" ng-show="currentView == 'gallery'">-->
+        <!--<md-tab label="only image" md-on-select="showCardMode('image')"></md-tab>-->
+        <!--<md-tab label="some whois" md-on-select="showCardMode('whois')"></md-tab>-->
+        <!--</md-tabs>-->
+        <!-- end viewMenu -->
+
+        <!--<section id="viewMenu">-->
+        <!--<button ng-click="currentView = 'whois'">Whois</button>-->
+        <!--<button ng-click="currentView = 'gallery'">Gallery</button>-->
+        <!--<button ng-click="currentView = 'settings'">Settings</button>-->
+        <!--</section>&lt;!&ndash; end viewMenu &ndash;&gt;-->
+        <!--<div flex>-->
+        <!--<div ng-repeat="view in views">-->
+        <!--<div ng-click="setView($index)">{{view.name}}</div>-->
+        <!--</div>-->
+        <!--</div>-->
+    </section>
+
+    <div search-view-details ng-show="showDetailedContainer" class=""
+         domain="activeDomain"
+         scan-data="scanData"
+         triage-options="triageOptions"
+         triage-next-step-options="nextStepOptions"
+         default-option="defaultSearchType"
+         show-detailed-container="showDetailedContainer"
+         go-to-prev-domain="previousDomain"
+         go-to-next-domain="nextDomain"
+         close-domain-details="closeDomainDetails"
+         select-domain-helper="selectDomainHelper"
+         deselect-domain-helper="deselectDomainHelper"
+         set-triage-single="setTriageSingle"
+         set-next-step-single="setNextStepSingle"
+         archive-domain="archiveDomainFromDetails"
+         restore-domain="restoreDomainFromDetails"
+         ></div>
+
+
+
+    <div layout="row" ng-show="!showDetailedContainer">
+
+
+        <!--<div class="right-main">-->
+        <section style="width: 100%">
+
+            <section flex ng-hide="detailedView">
+
+
+
+
+                <section id="triageActionBar" ng-show="currentView != 'settings'">
+                    <section layout="row" id="triageCsSearch">
+                        <div cs-search flex
+                             pagination="pagination"
+                             search-params="searchParams"
+                             search-type="'Domain'"
+                             search-input-id="'mainTriageSearchContainer'">
+                        </div>
+                    </section>
+
+                    <section layout="row" style="align-items: center">
+                        <div flex>
+                            <md-button type="button" ng-click="allVisibleSelected ? deselectAllVisible() : selectAllVisible()" class="md-raised md-accent" style="margin-right:0px;">
+                                <input type="checkbox" ng-checked="allVisibleSelected">
+                                <span ng-show="selectedDomains.length && !selectAllLoading"> ({{selectedDomains.length}} Selected) </span>
+                                <span ng-show="selectAllLoading">Loading...</span>
+                            </md-button>
+
+
+                            <md-menu ng-show="!selectAllLoading">
+                                <md-button class="md-icon-button md-accent" ng-click="$mdOpenMenu($event)" style="margin-left:-10px; margin-right: -18px" aria-label="select data">
+                                    <i class="fa fa-chevron-down"></i>
+                                </md-button>
+
+                                <md-menu-content width="4">
+                                    <md-menu-item><md-button ng-click="selectAll()">Select All</md-button></md-menu-item>
+                                    <md-menu-item><md-button ng-click="selectAllVisible()">Select Visible</md-button></md-menu-item>
+                                    <md-menu-item ng-show="pagination.filter.length || pagination.search.length"><md-button ng-click="selectAll(1)" >Select Filtered Results</md-button></md-menu-item>
+                                    <md-menu-item ng-show="selectedDomains.length"><md-button ng-click="deselectAll()">Deselect All</md-button></md-menu-item>
+                                    <md-menu-item ng-show="selectedDomains.length"><md-button ng-click="deselectAllVisible()" >Deselect Visible</md-button></md-menu-item>
+                                    <md-menu-item ng-show="selectedDomains.length && (pagination.filter.length || pagination.search.length)"><md-button ng-click="deselectAllResults()" >Deselect Filtered Results</md-button></md-menu-item>
+                                </md-menu-content>
+                            </md-menu>
+
+                                <span ng-if="currentTab != 'archived'" style="margin-top:10px;">
+                                    <md-menu>
+                                        <md-button ng-disabled="!selectedDomains.length || setTriageLoading.triage_infringement" type="button" class="btn btn-primary md-raised dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" ng-click="$mdOpenMenu($event)">
+                                            <span ng-show="!setTriageLoading.triage_infringement">Classify <i class="fa fa-chevron-down"></i></span>
+                                            <span ng-show="setTriageLoading.triage_infringement">Loading...</span>
+                                            <md-tooltip>Label Site Content</md-tooltip>
+                                        </md-button>
+                                        <md-menu-content width="4">
+                                            <md-menu-item ng-repeat="triage in triageOptions" ng-click="setTriage(triage.name, 'triage_infringement')">
+                                                <md-button>{{triage.name}}</md-button>
+                                            </md-menu-item>
+                                        </md-menu-content>
+                                    </md-menu>
+
+                                    <md-menu>
+                                        <md-button ng-disabled="!selectedDomains.length || setTriageLoading.triage_nextstep" type="button" class="btn btn-primary md-raised dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" ng-click="$mdOpenMenu($event)">
+                                            <span ng-show="!setTriageLoading.triage_nextstep">Next Step <i class="fa fa-chevron-down"></i></span>
+                                            <span ng-show="setTriageLoading.triage_nextstep">Loading...</span>
+                                            <md-tooltip>Label Action Items</md-tooltip>
+                                        </md-button>
+                                        <md-menu-content width="4">
+                                            <md-menu-item ng-repeat="option in nextStepOptions" ng-click="setTriage(option.name, 'triage_nextstep')">
+                                                <md-button>{{option.name}}</md-button>
+                                            </md-menu-item>
+                                        </md-menu-content>
+                                    </md-menu>
+
+                                    <!--<md-button class="btn btn-default md-raised" type="button" modal-content directive-name="case-create-and-add-form" assoc-data="selectedDomains">Add To Case</md-button>-->
+                                    <md-button class="md-raised" ng-disabled="!selectedDomains.length"
+                                               type="button"
+                                               modal-content
+                                               directive-name="search-domain-refresh-form"
+                                               padded-modal="false"
+                                               click-to-close="true"
+                                               assoc-data="selectedDomains"
+                                               modal-controller="$parent">
+                                        Refresh Data
+                                        <md-tooltip>Gather Fresh Data for These Domain(s)</md-tooltip>
+                                    </md-button>
+
+                                    <!--<md-button class="btn btn-default md-raised" type="button" ng-click="domainRefresh()">Instant Refresh</md-button>-->
+                                    <md-button ng-disabled="!selectedDomains.length || setArchiveLoading" class="btn btn-default md-raised" type="button" ng-click="archiveDomain(selectedDomains)">
+                                        <span ng-show="!setArchiveLoading">Archive</span>
+                                        <span ng-show="setArchiveLoading">Loading...</span>
+                                        <md-tooltip>Move These Domain(s) in the Archive Section</md-tooltip>
+                                    </md-button>
+                                    <!--<md-button class="btn btn-default md-raised" type="button" ng-click="viewRawWhois()">Raw Whois</md-button>-->
+
+                                    <md-button class="md-raised" ng-disabled="!selectedDomains.length || selectedDomains.length>100"
+                                               type="button"
+                                               modal-content
+                                               directive-name="search-domain-fields-form"
+                                               padded-modal="true"
+                                               click-to-close="true"
+                                               assoc-data="{selectedDomains:selectedDomains,scan_id:scanId,scanData:scanData}"
+                                               modal-header="'Create Report'"
+                                               modal-controller="$parent">
+                                        CREATE REPORT
+                                        <md-tooltip>Create report</md-tooltip>
+                                    </md-button>
+                                </span>
+                                <span ng-if="currentTab == 'archived'" style="margin-left:10px;margin-top:10px;">
+                                    <md-button ng-disabled="!selectedDomains.length || setArchiveLoading" class="btn btn-default md-raised" type="button" ng-click="unArchiveDomain(selectedArchivedDomains)">
+                                        <span ng-show="!setArchiveLoading">Restore</span>
+                                        <span ng-show="setArchiveLoading">Loading...</span>
+                                    </md-button>
+                                </span>
+
+                        </div>
+
+                        <!--<div cs-filters-->
+                             <!--pagination-data="pagination"-->
+                             <!--filter-type='Domain'-->
+                             <!--filter-params="searchParamsArchived"-->
+                             <!--filter-control="filterControl"-->
+                             <!--filter-group='domain-archived'-->
+                             <!--</div>-->
+                        <div cs-per-page
+                             pagination-data="pagination"
+                             per-page-options="perPageOptions"></div>
+                        <div cs-paginate
+                             pagination-data="pagination"
+                             pagination-total-results="totalResults"></div>
+
+                        <md-button class="md-raised"
+                                   ng-hide="currentView == 'gallery'"
+                                   type="button"
+                                   modal-content
+                                   directive-name="cs-column-picker"
+                                   padded-modal="true"
+                                   assoc-data="views">Columns</md-button>
+                        <!--<div cs-download-grid-->
+                             <!--pagination-data="pagination"-->
+                             <!--grid-type="dataType"-->
+                             <!--grid-option="gridOptions"-->
+                             <!--grid-fields="fields"-->
+                             <!--grid-data= "domains"-->
+                             <!--download-tooltip-text="downloadTooltipText"></div>-->
+
+                        <div>
+                            <!--<a ng-click="showSearchsSettings()" class="wk-button secondary-button" style="margin-right: 8px">Search Settings</a>-->
+                            <!--<md-button class="md-raised" ng-click="showSearchsSettings()">Search Details</md-button>-->
+                            <md-button ng-hide="archived" class="md-raised" modal-content directive-name="search-view-info-modal" modal-header="scanData.searchType + ' Settings'" padded-modal="true" assoc-data="scanData">Search Details</md-button>
+                        </div>
+
+                        <md-button class="md-raised"
+                                   ng-click="searchInsights = !searchInsights"
+                                   ng-hide="archived"
+                                   >Search Insights <i class="fa fa-chevron-down fa-rotate-90" ng-class="{'fa-rotate-90': !searchInsights}" aria-hidden="true"></i>
+                        </md-button>
+
+
+                    </section>
+
+                </section><!-- end triageActionBar -->
+
+                <div class="cf" layout="row">
+
+
+                    <section id="whoisTab" ng-class="{'search-insights--active': searchInsights, 'hide-whois-tab': currentView != 'table'}">
+                        <md-card style="margin: 8px" id="triageCsGrid">
+                            <div cs-grid
+                                 grid-data="domains"
+                                 grid-call-server="callServer"
+                                 grid-pagination="pagination"
+                                 grid-options="gridOptions"
+                                 grid-click=""
+                                 grid-right-click="rowRightClick"
+                                 grid-compact-view="gridCompactView"
+                                 grid-calculate-height="getTableHeight"
+                                 action-options="actionOptions"
+                                 grid-view-changed="gridViewChanged"></div>
+                        </md-card>
+                    </section><!-- end whoisTab -->
+
+
+
+                    <section id="galleryTab" ng-class="{'search-insights--active': searchInsights, 'hide-whois-tab': currentView != 'gallery'}">
+                        <md-content style="height: calc(100vh - 320px); background-color: #ececec">
+
+                            <section class="grid-container" layout="row" style="flex-wrap: wrap;justify-content: center;">
+                                <div search-view-card flex-gt-sm="20" flex-sm="50" flex-md="33" ng-repeat="domain in domains track by $index"
+                                     action-options="actionOptions"
+                                     triage-options="triageOptions"
+                                     triage-values="triageValues"
+                                     next-step-options="nextStepOptions"
+                                     default-option="defaultOption"
+                                     domain="domain"
+                                     open-domain="openDomainDetails"
+                                     active-domain="activeDomain"
+                                     select-domain-helper="selectDomainHelper"
+                                     deselect-domain-helper="deselectDomainHelper"
+                                     set-triage-single="setTriageSingle"
+                                     card-display-variable="cardDisplayMode"></div>
+
+                            </section>
+
+                        </md-content>
+                    </section><!-- end galleryTab -->
+
+
+                    <section class="search-insights grey-box" ng-class="{'search-insights--active': searchInsights}" layout="column">
+                        <div>
+                            <div class="search-insights__close" ng-click="searchInsights = false;"><i class="fa fa-times" aria-hidden="true"></i></div>
+                            <div search-view-insights ></div>
+                        </div>
+                    </section>
+
+
+                </div>
+
+
+
+                <md-card style="margin: 8px" layout="row" id="triageBottomPaginate" ng-show="currentView != 'settings'">
+                    <div search-progress-bar flex
+                         scan-data="scanData"
+                    ></div>
+                    <!--<span flex></span>-->
+                    <div cs-paginate
+                         pagination-data="pagination"
+                         pagination-total-results="totalResults"></div>
+                </md-card>
+
+
+
+
+
+
+
+
+
+                <section id="toolsTab" ng-if="currentView == 'settings'">
+
+                    <!--  Commenting This out for now-->
+                    <!--<div search-view-details-action-toolbar domain="domain" scan="scanData"></div>-->
+
+                    <md-toolbar>
+                        <div class="md-toolbar-tools">
+
+                            <!--<md-button modal-content directive-name="search-add-domain-modal">-->
+                                <!--<md-tooltip md-direction="top" ng-if="iconTooltipText">{{iconTooltipText}}</md-tooltip>-->
+                                <!--<md-icon class="zmdi zmdi-plus"></md-icon> Add Domains-->
+                            <!--</md-button>-->
+
+                            <md-button modal-content
+                                       directive-name="search-scan-refresh-form"
+                                       padded-modal="false"
+                                       click-to-close="true"
+                                       assoc-data="scanData"
+                                       modal-controller="$parent">
+                                <md-tooltip md-direction="top" ng-if="iconTooltipText">{{iconTooltipText}}</md-tooltip>
+                                <md-icon class="zmdi zmdi-refresh"></md-icon> Refresh All Domains
+                            </md-button>
+
+                            <md-button
+                                    ng-click="downloadAllCsv()"
+                                    aria-label="download">
+                                <md-icon class="zmdi zmdi-cloud-download zmdi-hc-2x"></md-icon>
+                                <md-tooltip md-direction="top">Download all Scan data. (Including all columns)</md-tooltip>
+                                <span ng-show="!downloadAllLoading">Download All</span>
+                                <span ng-show="downloadAllLoading">Loading...</span>
+                            </md-button>
+                        </div>
+                    </md-toolbar>
+
+                    <!--<button ng-click="colorDomains()">Color Domains</button>-->
+
+                    <div>
+                        <md-card ng-if="scanData.schedule_rate" class="widget background-green">
+                            <md-card-title class="widget-title">
+                                <md-card-title-text>
+                                    <span class="md-headline">Scan Data Refresh Settings <span ng-if="scanData.schedule_rate"> - <span class="color-green">Active</span></span></span>
+                                    <span ng-if="scanData.schedule_rate" class="md-subhead">Currently Active <span class="md-body-1">{{::scanData.schedule_start_date | date:"MM/dd/yyyy"}} - {{::scanData.schedule_end_date | date:"MM/dd/yyyy"}}</span></span>
+                                    <span ng-if="scanData.schedule_rate" class="md-subhead">Rate <span class="md-body-1" ng-if="scanData.schedule_rate == 2">Bi-Monthly</span><span class="md-body-1" ng-if="scanData.schedule_rate == 4">Monthly</span></span>
+                                </md-card-title-text>
+                            </md-card-title>
+                            <md-card-content>
+                                <div flex>
+                                    <div>
+                                    </div>
+                                </div>
+                            </md-card-content>
+                        </md-card>
+                    </div>
+
+                    <div layout="row">
+                        <md-card>
+                            <md-card-content>
+                                <h2 class="md-title">Information</h2>
+                                <div layout="row">
+                                    <div flex>
+                                        <p><span>Scan Name:</span> <span cs-editable-text
+                                                                         form-url="search/searchController.js"
+                                                                         form-action="changeName"
+                                                                         field-name="scanName"
+                                                                         save-scope="nameScope"
+                                                                         text-content="scanData.name"></span></p>
+                                        <p><span>Scan ID:</span> <span>{{::scanData._id}}</span></p>
+                                        <p><span>Brand:</span> <span>{{::scanData.brand.name}}</span></p>
+                                        <p><span>Keywords:</span> <div ng-repeat="word in scanData.trademark_keywords">{{::word}}</div><span ng-if="scanData.trademark_keywords.length == 0">Uploaded List, <small>therefore no keywords</small></span></p>
+                                        <p><span>Search Type:</span> <span>{{::scanData.searchType}}</span></p>
+                                        <p><span>Total Domains:</span> <span>{{::scanData.total_domains}}</span></p>
+                                    </div>
+
+                                </div>
+                            </md-card-content>
+                        </md-card>
+
+
+                        <md-card>
+                            <md-card-content>
+                                <h2 class="md-title">Add Domains</h2>
+                                <div search-add-domain-modal></div>
+                            </md-card-content>
+                        </md-card>
+
+                        <!--The following card needs more design and commented out for now-->
+
+                        <!--<md-card>-->
+                            <!--<md-card-content>-->
+                                <!--<h2 class="md-title">Select Additional Domains</h2>-->
+                                <!--<md-button class="md-raised" ng-click="backToFilterPage()">View</md-button>-->
+                                <!--<br><br>-->
+                                <!--<h2 class="md-title">Modify Search Settings</h2>-->
+                                <!--<div edit-search search-type="scanData.searchType"></div>-->
+                            <!--</md-card-content>-->
+                        <!--</md-card>-->
+
+                    </div>
+
+
+
+
+                </section><!-- end toolsTab -->
+
+
+            </section><!-- end detailedView-->
+
+        </section><!-- end detailedView-->
+
+            <!--</div>&lt;!&ndash; end right-main &ndash;&gt;-->
+
+
+    </div><!-- end !showDetailedContainer -->
+
+
+
+</section><!-- end mainTriageScope -->
